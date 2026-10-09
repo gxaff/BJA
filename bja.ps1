@@ -1,14 +1,13 @@
 <#
 .SYNOPSIS
-    BJA Toolbox v7.0 - Input Control Ultimate Edition
+    BJA Toolbox v8.0 - Fast Input Edition
 
 .DESCRIPTION
     - Password Lock (142010)
-    - 6 Tabs: Install / Tweaks / Input / Config / Updates / About
     - 80+ Tweak + Mouse/Keyboard/Drawing tuning
-    - AutoHotkey macro templates
+    - AutoHotkey v2 macro templates (fixed syntax)
+    - Async icon loading + local cache
     - Presets: Standard / Minimal / Advanced / Gaming / Extreme
-    - Real app icons
 
 .USAGE
     irm https://raw.githubusercontent.com/gxaff/BJA/main/bja.ps1 | iex
@@ -17,13 +16,17 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = 'Continue'
 
-$script:Version       = "7.0.0"
+$script:Version       = "8.0.0"
 $script:Password      = "142010"
 $script:LogPath       = "$env:USERPROFILE\Desktop\BJA_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
 $script:SelectedApps  = New-Object System.Collections.ArrayList
 $script:SelectedTweaks= New-Object System.Collections.ArrayList
 $script:TweakBoxes    = New-Object System.Collections.ArrayList
 $script:IconCache     = @{}
+$script:IconCacheDir  = "$env:LOCALAPPDATA\BJA\Icons"
+if (-not (Test-Path $script:IconCacheDir)) {
+    New-Item $script:IconCacheDir -ItemType Directory -Force | Out-Null
+}
 
 function Write-Log {
     param([string]$Message, [string]$Level = 'INFO')
@@ -65,7 +68,7 @@ function Show-PasswordLock {
       <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="45">
         <TextBlock Text="◈" FontSize="70" Foreground="#00e5a0" HorizontalAlignment="Center"/>
         <TextBlock Text="BJA Toolbox" FontSize="28" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,14,0,0"/>
-        <TextBlock Text="v7.0 Ultimate" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
+        <TextBlock Text="v8.0 Fast Edition" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
         <TextBlock Text="أدخل الرمز السري" FontSize="14" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,0,0,12"/>
         <Border Background="#1c1c28" CornerRadius="10" BorderBrush="#26263a" BorderThickness="1" Padding="16,12">
           <PasswordBox x:Name="PwdBox" Background="Transparent" Foreground="#e8e8f0" BorderThickness="0"
@@ -91,13 +94,11 @@ function Show-PasswordLock {
 "@
     $reader = New-Object System.Xml.XmlNodeReader ([xml]$lockXaml)
     $lockWin = [Windows.Markup.XamlReader]::Load($reader)
-
     $lockWin.Add_MouseLeftButtonDown({ try { $lockWin.DragMove() } catch {} })
 
-    $pwdBox   = $lockWin.FindName("PwdBox")
-    $errText  = $lockWin.FindName("ErrorText")
-    $unlockBtn= $lockWin.FindName("UnlockBtn")
-
+    $pwdBox    = $lockWin.FindName("PwdBox")
+    $errText   = $lockWin.FindName("ErrorText")
+    $unlockBtn = $lockWin.FindName("UnlockBtn")
     $script:Unlocked = $false
 
     $tryUnlock = {
@@ -110,24 +111,17 @@ function Show-PasswordLock {
             $pwdBox.Focus() | Out-Null
         }
     }
-
     $unlockBtn.Add_Click($tryUnlock)
-    $pwdBox.Add_KeyDown({
-        if ($_.Key -eq 'Return') { & $tryUnlock }
-    })
-
+    $pwdBox.Add_KeyDown({ if ($_.Key -eq 'Return') { & $tryUnlock } })
     $pwdBox.Focus() | Out-Null
     $lockWin.ShowDialog() | Out-Null
-
     return $script:Unlocked
 }
 
 if (-not (Show-PasswordLock)) {
-    Write-Host ""
     Write-Host "  ❌ Access Denied" -ForegroundColor Red
     exit
 }
-
 Write-Host "  ✅ Access granted" -ForegroundColor Green
 Write-Host ""
 
@@ -141,7 +135,6 @@ function Invoke-Tweak {
     $success = $false
     try {
         switch ($Name) {
-
             "Disable Telemetry" {
                 $p1 = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection"
                 if (-not (Test-Path $p1)) { New-Item $p1 -Force | Out-Null }
@@ -469,8 +462,30 @@ $script:Apps = @(
 function Get-IconImage {
     param([string]$Url)
     if ($script:IconCache.ContainsKey($Url)) { return $script:IconCache[$Url] }
+
+    $hash = [System.BitConverter]::ToString(
+        [System.Security.Cryptography.MD5]::Create().ComputeHash(
+            [System.Text.Encoding]::UTF8.GetBytes($Url)
+        )
+    ).Replace("-","")
+    $cachePath = Join-Path $script:IconCacheDir "$hash.png"
+
     try {
+        if (Test-Path $cachePath) {
+            $img = New-Object System.Windows.Media.Imaging.BitmapImage
+            $img.BeginInit()
+            $img.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+            $img.UriSource = New-Object System.Uri($cachePath)
+            $img.DecodePixelWidth = 48
+            $img.EndInit()
+            $img.Freeze()
+            $script:IconCache[$Url] = $img
+            return $img
+        }
+
         $bytes = (New-Object System.Net.WebClient).DownloadData($Url)
+        [System.IO.File]::WriteAllBytes($cachePath, $bytes)
+
         $stream = New-Object System.IO.MemoryStream(,$bytes)
         $img = New-Object System.Windows.Media.Imaging.BitmapImage
         $img.BeginInit()
@@ -535,7 +550,7 @@ $script:Presets = @{
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BJA Toolbox v7.0" Height="850" Width="1400"
+        Title="BJA Toolbox v8.0" Height="850" Width="1400"
         WindowStartupLocation="CenterScreen"
         Background="#0a0a0f" Foreground="#e8e8f0"
         WindowStyle="None" ResizeMode="CanResizeWithGrip">
@@ -671,7 +686,7 @@ $script:Presets = @{
           <TextBlock Text="🔒" FontSize="18" Foreground="#00e5a0" VerticalAlignment="Center"/>
           <TextBlock Text="BJA" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
           <TextBlock Text="Toolbox" FontSize="14" Foreground="#7a7a8a" Margin="6,0,0,0" VerticalAlignment="Center"/>
-          <TextBlock Text="v7.0 Input Edition" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          <TextBlock Text="v8.0 Fast" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
           <Button x:Name="BtnMin" Content="—" Width="42" Height="32" Background="Transparent" Foreground="#888" BorderThickness="0" FontSize="16" Cursor="Hand"/>
@@ -749,7 +764,7 @@ $script:Presets = @{
     <Border Grid.Row="3" Background="#08080c" BorderBrush="#26263a" BorderThickness="0,1,0,0">
       <Grid Margin="24,0">
         <TextBlock x:Name="StatusText" Text="Ready" Foreground="#7a7a8a" FontSize="11" VerticalAlignment="Center"/>
-        <TextBlock Text="BJA Toolbox v7.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        <TextBlock Text="BJA Toolbox v8.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
     </Border>
   </Grid>
@@ -771,9 +786,7 @@ $window.FindName("BtnClose").Add_Click({ $window.Close() })
 $window.FindName("BtnMin").Add_Click({ $window.WindowState = 'Minimized' })
 
 $SearchBox.Add_GotFocus({ $SearchPlaceholder.Visibility = 'Collapsed' })
-$SearchBox.Add_LostFocus({
-    if ([string]::IsNullOrEmpty($SearchBox.Text)) { $SearchPlaceholder.Visibility = 'Visible' }
-})
+$SearchBox.Add_LostFocus({ if ([string]::IsNullOrEmpty($SearchBox.Text)) { $SearchPlaceholder.Visibility = 'Visible' } })
 
 # ═══════════════════════════════════════════════════════════
 #  VIEWS
@@ -801,19 +814,26 @@ function Show-InstallView {
             $inner = New-Object System.Windows.Controls.StackPanel
             $inner.VerticalAlignment = "Center"; $inner.HorizontalAlignment = "Center"
 
-            $img = Get-IconImage -Url $app.Icon
-            if ($img) {
-                $imgBox = New-Object System.Windows.Controls.Image
-                $imgBox.Source = $img
-                $imgBox.Width = 42; $imgBox.Height = 42
-                $imgBox.HorizontalAlignment = "Center"
-                $inner.Children.Add($imgBox) | Out-Null
-            } else {
-                $fallback = New-Object System.Windows.Controls.TextBlock
-                $fallback.Text = "📦"; $fallback.FontSize = 32
-                $fallback.HorizontalAlignment = "Center"
-                $inner.Children.Add($fallback) | Out-Null
-            }
+            $imgBox = New-Object System.Windows.Controls.Image
+            $imgBox.Width = 42; $imgBox.Height = 42
+            $imgBox.HorizontalAlignment = "Center"
+            $imgBox.Tag = $app.Icon
+            $imgBox.Add_Loaded({
+                $url = $this.Tag
+                try {
+                    $bytes = (New-Object System.Net.WebClient).DownloadData($url)
+                    $stream = New-Object System.IO.MemoryStream(,$bytes)
+                    $img = New-Object System.Windows.Media.Imaging.BitmapImage
+                    $img.BeginInit()
+                    $img.StreamSource = $stream
+                    $img.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+                    $img.DecodePixelWidth = 48
+                    $img.EndInit()
+                    $img.Freeze()
+                    $this.Source = $img
+                } catch {}
+            })
+            $inner.Children.Add($imgBox) | Out-Null
 
             $name = New-Object System.Windows.Controls.TextBlock
             $name.Text = $app.Name; $name.FontSize = 12; $name.FontWeight = "SemiBold"
@@ -866,7 +886,7 @@ function Add-TweakSection {
 function Show-TweaksView {
     $ContentArea.Children.Clear()
     $HeaderText.Text = "Tweaks"
-    $SubHeaderText.Text = "اضغط Preset فوق أو اختار يدوي"
+    $SubHeaderText.Text = "Preset أو اختيار يدوي"
     $script:TweakBoxes.Clear()
 
     $presetRow = New-Object System.Windows.Controls.StackPanel
@@ -894,7 +914,7 @@ function Show-TweaksView {
                 $script:SelectedTweaks.Clear()
                 foreach ($cb in $script:TweakBoxes) { $cb.IsChecked = ($preset -contains $cb.Tag) }
                 $StatusCount.Text = "$($script:SelectedTweaks.Count) selected"
-                $StatusText.Text = "Preset applied: $n"
+                $StatusText.Text = "Preset: $n"
             }
         })
         $presetRow.Children.Add($btn) | Out-Null
@@ -924,19 +944,16 @@ function Show-TweaksView {
         "Disable Animations","Num Lock on Startup","Disable Taskbar Search",
         "Hide Task View Button","Disable Start Recommendations","Enable Long Paths"
     )
-    Add-TweakSection "Advanced — CAUTION" "#ff5566" @(
-        "Disable Reserved Storage","Set Services to Manual"
-    )
     Add-TweakSection "Maintenance" "#aaaaff" @(
         "Disk Cleanup","Delete Temp Files","Empty Recycle Bin","Create Restore Point",
-        "Clear Windows Update Cache","Reset Windows Store Cache"
+        "Clear Windows Update Cache","Reset Windows Store Cache","Disable Reserved Storage"
     )
 }
 
 function Show-InputView {
     $ContentArea.Children.Clear()
     $HeaderText.Text = "Input Control"
-    $SubHeaderText.Text = "Mouse · Keyboard · Drawing · Macros"
+    $SubHeaderText.Text = "Mouse · Keyboard · Macros"
 
     # ═══ MOUSE ═══
     $mouseHdr = New-Object System.Windows.Controls.TextBlock
@@ -1022,9 +1039,9 @@ function Show-InputView {
     $ContentArea.Children.Add($kbHdr) | Out-Null
 
     foreach ($t in @(
-        @{Name="Fast Key Repeat"; Reg="KeyboardDelay"; Value="0"; Desc="Lowest delay"},
-        @{Name="Fast Repeat Rate"; Reg="KeyboardSpeed"; Value="31"; Desc="Max speed"},
-        @{Name="Disable Sticky Keys Popup"; Reg="Flags"; Value="506"; Desc="No popup"}
+        @{Name="Fast Key Repeat"; Reg="KeyboardDelay"; Value="0"; Path="HKCU:\Control Panel\Keyboard"; Desc="Lowest delay"},
+        @{Name="Fast Repeat Rate"; Reg="KeyboardSpeed"; Value="31"; Path="HKCU:\Control Panel\Keyboard"; Desc="Max speed"},
+        @{Name="Disable Sticky Keys Popup"; Reg="Flags"; Value="506"; Path="HKCU:\Control Panel\Accessibility\StickyKeys"; Desc="No popup"}
     )) {
         $rowBorder = New-Object System.Windows.Controls.Border
         $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
@@ -1054,8 +1071,7 @@ function Show-InputView {
         $btn.Tag = $t
         $btn.Add_Click({
             $info = $this.Tag
-            $path = if ($info.Reg -eq "Flags") { "HKCU:\Control Panel\Accessibility\StickyKeys" } else { "HKCU:\Control Panel\Keyboard" }
-            Set-ItemProperty $path -Name $info.Reg -Value $info.Value -Type String -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty $info.Path -Name $info.Reg -Value $info.Value -Type String -Force -ErrorAction SilentlyContinue
             $StatusText.Text = "Applied: $($info.Name)"
         })
         [System.Windows.Controls.Grid]::SetColumn($btn, 1)
@@ -1065,9 +1081,9 @@ function Show-InputView {
         $ContentArea.Children.Add($rowBorder) | Out-Null
     }
 
-    # ═══ DRAWING / PRECISION ═══
+    # ═══ PRECISION ═══
     $drawHdr = New-Object System.Windows.Controls.TextBlock
-    $drawHdr.Text = "▸ Drawing / Precision Mode"
+    $drawHdr.Text = "▸ Precision Mode"
     $drawHdr.FontSize = 14; $drawHdr.FontWeight = "Bold"
     $drawHdr.Foreground = "#ff9944"; $drawHdr.Margin = "0,25,0,8"
     $ContentArea.Children.Add($drawHdr) | Out-Null
@@ -1100,9 +1116,9 @@ function Show-InputView {
     }
     $ContentArea.Children.Add($precisionRow) | Out-Null
 
-    # ═══ MACRO ═══
+    # ═══ MACROS ═══
     $macroHdr = New-Object System.Windows.Controls.TextBlock
-    $macroHdr.Text = "▸ Macro / Automation"
+    $macroHdr.Text = "▸ AutoHotkey Macros"
     $macroHdr.FontSize = 14; $macroHdr.FontWeight = "Bold"
     $macroHdr.Foreground = "#ff5566"; $macroHdr.Margin = "0,25,0,8"
     $ContentArea.Children.Add($macroHdr) | Out-Null
@@ -1136,13 +1152,16 @@ function Show-InputView {
     $ahkRow.Children.Add($openAhkFolderBtn) | Out-Null
     $ContentArea.Children.Add($ahkRow) | Out-Null
 
-    foreach ($t in @(
-        @{Name="🎨 Smooth Draw Mode"; File="smooth_draw.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n; Hold Shift to slow cursor`n~Shift::SetDefaultMouseSpeed, 3`n~Shift Up::SetDefaultMouseSpeed, 10`n"}
-        @{Name="🎯 Aim Hold";         File="aim_hold.ahk";      Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n; Hold RMB for slow precise movement`nRButton::SetDefaultMouseSpeed, 5`nRButton Up::SetDefaultMouseSpeed, 10`n"}
+    $macros = @(
+        @{Name="🎨 Smooth Draw Mode"; File="smooth_draw.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nSetDefaultMouseSpeed(10)`n`n~LShift::`n{`n    SetDefaultMouseSpeed(3)`n}`n`n~LShift Up::`n{`n    SetDefaultMouseSpeed(10)`n}`n`nF8::`n{`n    static active := false`n    active := !active`n    if (active) {`n        SetDefaultMouseSpeed(1)`n        ToolTip(`"Draw Mode ON`")`n    } else {`n        SetDefaultMouseSpeed(10)`n        ToolTip(`"Draw Mode OFF`")`n    }`n    SetTimer(() => ToolTip(), -1500)`n}`n"}
+        @{Name="🎯 Aim Hold";         File="aim_hold.ahk";      Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nRButton::`n{`n    SetDefaultMouseSpeed(2)`n    Send(`"{RButton Down}`")`n    KeyWait(`"RButton`")`n    Send(`"{RButton Up}`")`n    SetDefaultMouseSpeed(10)`n}`n"}
         @{Name="📸 Screenshot Macro"; File="screenshot.ahk";    Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nPrintScreen::Run(`"ms-screenclip:`")`n"}
-        @{Name="🖱️ Precise Click";    File="precise_click.ahk"; Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n; Delays click for precision`nLButton::Send(`"{LButton}`")`n"}
-        @{Name="⌨️ Text Expander";    File="text_expand.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n::@@::your@email.com`n::##::+1234567890`n"}
-    )) {
+        @{Name="🖱️ Precise Click";    File="precise_click.ahk"; Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nLButton::`n{`n    Sleep(20)`n    Send(`"{LButton}`")`n}`n"}
+        @{Name="⌨️ Text Expander";    File="text_expand.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n::@@::your.email@example.com`n::##::+1234567890`n"}
+        @{Name="🎮 Game Mode";        File="game_mode.ahk";     Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nF9::`n{`n    static enabled := false`n    enabled := !enabled`n    if (enabled) {`n        Hotkey(`"LWin`", `"Return`")`n        Hotkey(`"RWin`", `"Return`")`n        ToolTip(`"Game Mode ON`")`n    } else {`n        Hotkey(`"LWin`", `"Off`")`n        Hotkey(`"RWin`", `"Off`")`n        ToolTip(`"Game Mode OFF`")`n    }`n    SetTimer(() => ToolTip(), -1500)`n}`n"}
+    )
+
+    foreach ($t in $macros) {
         $rowBorder = New-Object System.Windows.Controls.Border
         $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
         $rowBorder.BorderThickness = "1"; $rowBorder.CornerRadius = "8"
@@ -1170,7 +1189,7 @@ function Show-InputView {
             if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
             $scriptPath = Join-Path $dir $info.File
             Set-Content -Path $scriptPath -Value $info.Content -Encoding UTF8
-            [System.Windows.MessageBox]::Show("Macro saved to:`n$scriptPath", "BJA")
+            [System.Windows.MessageBox]::Show("Macro saved:`n$scriptPath", "BJA")
         })
         [System.Windows.Controls.Grid]::SetColumn($btn, 1)
         $rowGrid.Children.Add($btn) | Out-Null
@@ -1180,7 +1199,7 @@ function Show-InputView {
     }
 
     $infoBox = New-Object System.Windows.Controls.TextBlock
-    $infoBox.Text = "⚠️  بعض الإعدادات محتاجة Sign-out. AutoHotkey مطلوب لتشغيل الماكرو."
+    $infoBox.Text = "⚠️  بعض الإعدادات محتاجة Sign-out. AutoHotkey v2 مطلوب لتشغيل الماكرو."
     $infoBox.FontSize = 10; $infoBox.Foreground = "#ff9944"; $infoBox.Margin = "0,15,0,0"
     $ContentArea.Children.Add($infoBox) | Out-Null
 }
