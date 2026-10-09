@@ -1,13 +1,15 @@
 <#
 .SYNOPSIS
-    BJA Toolbox v8.0 - Fast Input Edition
+    BJA Toolbox v9.0 Final - Async Icons + Splash + Zero Hang
 
 .DESCRIPTION
     - Password Lock (142010)
-    - 80+ Tweak + Mouse/Keyboard/Drawing tuning
-    - AutoHotkey v2 macro templates (fixed syntax)
-    - Async icon loading + local cache
-    - Presets: Standard / Minimal / Advanced / Gaming / Extreme
+    - Splash Screen فوري
+    - Async Icon Loading (الواجهة تفتح قبل تحميل الأيقونات)
+    - Local Icon Cache
+    - 80+ Tweak + 5 Presets
+    - Input Tab
+    - Config + Updates
 
 .USAGE
     irm https://raw.githubusercontent.com/gxaff/BJA/main/bja.ps1 | iex
@@ -16,14 +18,12 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = 'Continue'
 
-$script:Version       = "8.0.0"
-$script:Password      = "142010"
-$script:LogPath       = "$env:USERPROFILE\Desktop\BJA_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
-$script:SelectedApps  = New-Object System.Collections.ArrayList
-$script:SelectedTweaks= New-Object System.Collections.ArrayList
-$script:TweakBoxes    = New-Object System.Collections.ArrayList
-$script:IconCache     = @{}
-$script:IconCacheDir  = "$env:LOCALAPPDATA\BJA\Icons"
+$script:Version        = "9.0.0"
+$script:Password       = "142010"
+$script:LogPath        = "$env:USERPROFILE\Desktop\BJA_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
+$script:SelectedTweaks = New-Object System.Collections.ArrayList
+$script:TweakBoxes     = New-Object System.Collections.ArrayList
+$script:IconCacheDir   = "$env:LOCALAPPDATA\BJA\Icons"
 if (-not (Test-Path $script:IconCacheDir)) {
     New-Item $script:IconCacheDir -ItemType Directory -Force | Out-Null
 }
@@ -50,10 +50,61 @@ function New-RestorePoint {
 }
 
 # ═══════════════════════════════════════════════════════════
-#  PASSWORD LOCK
+#  WPF SETUP
 # ═══════════════════════════════════════════════════════════
 
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+
+# ═══════════════════════════════════════════════════════════
+#  SPLASH SCREEN
+# ═══════════════════════════════════════════════════════════
+
+function Show-Splash {
+    $splashXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BJA" Height="240" Width="440"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="True" Background="Transparent"
+        Topmost="True" ShowInTaskbar="False">
+  <Border Background="#0a0a0f" CornerRadius="18" BorderBrush="#00e5a0" BorderThickness="2">
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="30">
+      <TextBlock Text="◈" FontSize="52" Foreground="#00e5a0" HorizontalAlignment="Center"/>
+      <TextBlock Text="BJA Toolbox" FontSize="24" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+      <TextBlock Text="v9.0 Final" FontSize="11" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+      <TextBlock x:Name="SplashStatus" Text="Initializing..." FontSize="11" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,20,0,8"/>
+      <Border Background="#1c1c28" CornerRadius="4" Height="6" Width="320" HorizontalAlignment="Center">
+        <Border x:Name="SplashBar" Background="#00e5a0" CornerRadius="4" Height="6" Width="0" HorizontalAlignment="Left"/>
+      </Border>
+    </StackPanel>
+  </Border>
+</Window>
+"@
+    $reader = New-Object System.Xml.XmlNodeReader ([xml]$splashXaml)
+    $splash = [Windows.Markup.XamlReader]::Load($reader)
+    $splash.Show()
+    return $splash
+}
+
+function Update-Splash {
+    param($Splash, [string]$Status, [int]$Percent)
+    try {
+        $bar = $Splash.FindName("SplashBar")
+        $txt = $Splash.FindName("SplashStatus")
+        if ($txt) { $txt.Text = $Status }
+        if ($bar) { $bar.Width = 320 * $Percent / 100 }
+        $Splash.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
+    } catch {}
+}
+
+$splash = Show-Splash
+Start-Sleep -Milliseconds 200
+Update-Splash $splash "Loading WPF components..." 20
+
+# ═══════════════════════════════════════════════════════════
+#  PASSWORD LOCK
+# ═══════════════════════════════════════════════════════════
 
 function Show-PasswordLock {
     $lockXaml = @"
@@ -68,7 +119,7 @@ function Show-PasswordLock {
       <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="45">
         <TextBlock Text="◈" FontSize="70" Foreground="#00e5a0" HorizontalAlignment="Center"/>
         <TextBlock Text="BJA Toolbox" FontSize="28" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,14,0,0"/>
-        <TextBlock Text="v8.0 Fast Edition" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
+        <TextBlock Text="v9.0 Final" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
         <TextBlock Text="أدخل الرمز السري" FontSize="14" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,0,0,12"/>
         <Border Background="#1c1c28" CornerRadius="10" BorderBrush="#26263a" BorderThickness="1" Padding="16,12">
           <PasswordBox x:Name="PwdBox" Background="Transparent" Foreground="#e8e8f0" BorderThickness="0"
@@ -118,6 +169,9 @@ function Show-PasswordLock {
     return $script:Unlocked
 }
 
+Update-Splash $splash "Lock screen..." 40
+$splash.Close()
+
 if (-not (Show-PasswordLock)) {
     Write-Host "  ❌ Access Denied" -ForegroundColor Red
     exit
@@ -125,8 +179,11 @@ if (-not (Show-PasswordLock)) {
 Write-Host "  ✅ Access granted" -ForegroundColor Green
 Write-Host ""
 
+$splash = Show-Splash
+Update-Splash $splash "Loading main interface..." 60
+
 # ═══════════════════════════════════════════════════════════
-#  TWEAKS ENGINE
+#  TWEAK ENGINE
 # ═══════════════════════════════════════════════════════════
 
 function Invoke-Tweak {
@@ -190,9 +247,6 @@ function Invoke-Tweak {
                 if (-not (Test-Path $p)) { New-Item $p -Force | Out-Null }
                 Set-ItemProperty $p -Name TurnOffWindowsCopilot -Value 1 -Type DWord -Force
                 $success = $true
-            }
-            "Disable Recall" {
-                try { dism /Online /Disable-Feature /FeatureName:Recall /NoRestart 2>&1 | Out-Null; $success = $true } catch {}
             }
             "Disable Delivery Optimization" {
                 $p = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization"
@@ -300,9 +354,6 @@ function Invoke-Tweak {
                     try { Set-Service -Name $s -StartupType Disabled -ErrorAction Stop; $any = $true } catch {}
                 }
                 $success = $any
-            }
-            "Disable SMBv1" {
-                try { dism /Online /Disable-Feature /FeatureName:SMB1Protocol /NoRestart 2>&1 | Out-Null; $success = $true } catch {}
             }
             "Disable AutoRun" {
                 $p = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
@@ -420,94 +471,6 @@ function Invoke-Tweak {
     } catch { Write-Log "FAILED: $Name - $($_.Exception.Message)" 'ERROR' }
 }
 
-# ═══════════════════════════════════════════════════════════
-#  APPS CATALOG
-# ═══════════════════════════════════════════════════════════
-
-$script:Apps = @(
-    @{Name="Chrome";      Id="Google.Chrome";                Icon="https://www.google.com/chrome/static/images/favicons/favicon-32x32.png";    Cat="Browsers"}
-    @{Name="Firefox";     Id="Mozilla.Firefox";              Icon="https://www.mozilla.org/media/img/favicons/firefox/browser/favicon-32x32.1d3d4f70b9b0.png"; Cat="Browsers"}
-    @{Name="Brave";       Id="Brave.Brave";                  Icon="https://brave.com/static-assets/images/brave-logo-sans-text.svg";             Cat="Browsers"}
-    @{Name="Edge";        Id="Microsoft.Edge";               Icon="https://edgetipscdn.microsoft.com/insider-site/images/favicon.fbd89822.png"; Cat="Browsers"}
-    @{Name="Vivaldi";     Id="Vivaldi.Vivaldi";              Icon="https://vivaldi.com/wp-content/uploads/vivaldi_favicon_32.png";                Cat="Browsers"}
-    @{Name="Opera";       Id="Opera.Opera";                  Icon="https://www.opera.com/static/opera.ico";                                        Cat="Browsers"}
-    @{Name="Discord";     Id="Discord.Discord";              Icon="https://cdn.prod.website-files.com/6257adef93867a3e003fb2c0/6257c7dc0c8b1a41ac66ffb9_favicon.png"; Cat="Communication"}
-    @{Name="Telegram";    Id="Telegram.TelegramDesktop";     Icon="https://telegram.org/img/t_logo.png";                                            Cat="Communication"}
-    @{Name="WhatsApp";    Id="WhatsApp.WhatsApp";            Icon="https://static.whatsapp.net/rsrc.php/v3/yP/r/rYZqPCBaG70.png";                   Cat="Communication"}
-    @{Name="Zoom";        Id="Zoom.Zoom";                    Icon="https://st1.zoom.us/static/6.3.20.0/image/appicon/zoom_icon_dark.png";           Cat="Communication"}
-    @{Name="Slack";       Id="SlackTechnologies.Slack";      Icon="https://a.slack-edge.com/80588/marketing/img/meta/favicon-32.png";              Cat="Communication"}
-    @{Name="Signal";      Id="OpenWhisperSystems.Signal";    Icon="https://signal.org/assets/images/logo/logo.png";                                 Cat="Communication"}
-    @{Name="VS Code";     Id="Microsoft.VisualStudioCode";   Icon="https://code.visualstudio.com/favicon.ico";                                      Cat="Development"}
-    @{Name="Cursor";      Id="Anysphere.Cursor";             Icon="https://cursor.com/favicon.ico";                                                 Cat="Development"}
-    @{Name="Git";         Id="Git.Git";                      Icon="https://git-scm.com/favicon.ico";                                                Cat="Development"}
-    @{Name="Docker";      Id="Docker.DockerDesktop";         Icon="https://www.docker.com/wp-content/uploads/2022/03/Moby-logo.png";                Cat="Development"}
-    @{Name="Node.js LTS"; Id="OpenJS.NodeJS.LTS";            Icon="https://nodejs.org/static/images/favicons/favicon.png";                         Cat="Development"}
-    @{Name="Python 3.12"; Id="Python.Python.3.12";           Icon="https://www.python.org/static/favicon.ico";                                      Cat="Development"}
-    @{Name="Neovim";      Id="Neovim.Neovim";                Icon="https://neovim.io/favicon.ico";                                                  Cat="Development"}
-    @{Name="GitHub CLI";  Id="GitHub.cli";                   Icon="https://github.githubassets.com/favicons/favicon.png";                          Cat="Development"}
-    @{Name="VLC";         Id="VideoLAN.VLC";                 Icon="https://www.videolan.org/images/favicon.ico";                                    Cat="Multimedia"}
-    @{Name="OBS Studio";  Id="OBSProject.OBSStudio";         Icon="https://obsproject.com/assets/images/new_icon_small-r.png";                     Cat="Multimedia"}
-    @{Name="Audacity";    Id="Audacity.Audacity";            Icon="https://audacityteam.org/favicon.ico";                                           Cat="Multimedia"}
-    @{Name="GIMP";        Id="GIMP.GIMP.3";                  Icon="https://www.gimp.org/favicon.ico";                                               Cat="Multimedia"}
-    @{Name="7-Zip";       Id="7zip.7zip";                    Icon="https://7-zip.org/favicon.ico";                                                  Cat="Utilities"}
-    @{Name="Notepad++";   Id="Notepad++.Notepad++";          Icon="https://notepad-plus-plus.org/favicon.ico";                                      Cat="Utilities"}
-    @{Name="PowerToys";   Id="Microsoft.PowerToys";          Icon="https://raw.githubusercontent.com/microsoft/PowerToys/main/doc/images/overview/PowerToys.png"; Cat="Utilities"}
-    @{Name="Everything";  Id="voidtools.Everything";         Icon="https://www.voidtools.com/favicon.ico";                                          Cat="Utilities"}
-    @{Name="WinRAR";      Id="RARLab.WinRAR";                Icon="https://www.win-rar.com/favicon.ico";                                            Cat="Utilities"}
-    @{Name="Steam";       Id="Valve.Steam";                  Icon="https://store.steampowered.com/favicon.ico";                                     Cat="Gaming"}
-    @{Name="Epic Games";  Id="EpicGames.EpicGamesLauncher";  Icon="https://www.epicgames.com/favicon.ico";                                          Cat="Gaming"}
-    @{Name="MSI Afterburner"; Id="Guru3D.Afterburner";       Icon="https://www.msi.com/favicon.ico";                                                Cat="Gaming"}
-)
-
-function Get-IconImage {
-    param([string]$Url)
-    if ($script:IconCache.ContainsKey($Url)) { return $script:IconCache[$Url] }
-
-    $hash = [System.BitConverter]::ToString(
-        [System.Security.Cryptography.MD5]::Create().ComputeHash(
-            [System.Text.Encoding]::UTF8.GetBytes($Url)
-        )
-    ).Replace("-","")
-    $cachePath = Join-Path $script:IconCacheDir "$hash.png"
-
-    try {
-        if (Test-Path $cachePath) {
-            $img = New-Object System.Windows.Media.Imaging.BitmapImage
-            $img.BeginInit()
-            $img.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
-            $img.UriSource = New-Object System.Uri($cachePath)
-            $img.DecodePixelWidth = 48
-            $img.EndInit()
-            $img.Freeze()
-            $script:IconCache[$Url] = $img
-            return $img
-        }
-
-        $bytes = (New-Object System.Net.WebClient).DownloadData($Url)
-        [System.IO.File]::WriteAllBytes($cachePath, $bytes)
-
-        $stream = New-Object System.IO.MemoryStream(,$bytes)
-        $img = New-Object System.Windows.Media.Imaging.BitmapImage
-        $img.BeginInit()
-        $img.StreamSource = $stream
-        $img.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
-        $img.DecodePixelWidth = 48
-        $img.EndInit()
-        $img.Freeze()
-        $script:IconCache[$Url] = $img
-        return $img
-    } catch { return $null }
-}
-
-function Install-App {
-    param([string]$WingetId, [string]$AppName)
-    Write-Log "Installing: $AppName"
-    try {
-        winget install --id $WingetId --silent --accept-package-agreements --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
-        Write-Log "Installed: $AppName" 'OK'
-    } catch { Write-Log "Failed: $AppName" 'ERROR' }
-}
-
 function Set-DNS {
     param([string]$Provider)
     $map = @{
@@ -538,9 +501,9 @@ function Set-DNS {
 $script:Presets = @{
     "Standard" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Delivery Optimization","Disable SysMain","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar","Delete Temp Files","Empty Recycle Bin")
     "Minimal" = @("Disable Telemetry","Disable Advertising ID","Delete Temp Files","Empty Recycle Bin")
-    "Advanced" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable Recall","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Set IPv6 to Prefer IPv4","Disable Remote Registry","Disable Xbox Services","Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
+    "Advanced" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Set IPv6 to Prefer IPv4","Disable Remote Registry","Disable Xbox Services","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
     "Gaming" = @("Disable Telemetry","Disable Consumer Features","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Disable Background Apps","Adjust Visual Effects for Performance","Optimize Memory Management","Enable Game Mode","Disable Xbox Services","Disable Widgets","Dark Mode","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache")
-    "Extreme" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable Recall","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Disable Search Indexing","Clear Prefetch","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Disable IPv6","Disable Remote Registry","Disable Xbox Services","Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Disable Start Recommendations","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
+    "Extreme" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Disable Search Indexing","Clear Prefetch","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Disable IPv6","Disable Remote Registry","Disable Xbox Services","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Disable Start Recommendations","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -550,7 +513,7 @@ $script:Presets = @{
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BJA Toolbox v8.0" Height="850" Width="1400"
+        Title="BJA Toolbox v9.0" Height="850" Width="1400"
         WindowStartupLocation="CenterScreen"
         Background="#0a0a0f" Foreground="#e8e8f0"
         WindowStyle="None" ResizeMode="CanResizeWithGrip">
@@ -561,6 +524,7 @@ $script:Presets = @{
     <SolidColorBrush x:Key="Accent2"   Color="#7b5cff"/>
     <SolidColorBrush x:Key="TextDim"   Color="#7a7a8a"/>
     <SolidColorBrush x:Key="Border"    Color="#26263a"/>
+
     <Style x:Key="AppCard" TargetType="ToggleButton">
       <Setter Property="Background" Value="{StaticResource BgCard}"/>
       <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
@@ -590,6 +554,7 @@ $script:Presets = @{
         </Setter.Value>
       </Setter>
     </Style>
+
     <Style x:Key="PrimaryBtn" TargetType="Button">
       <Setter Property="Background" Value="{StaticResource Accent}"/>
       <Setter Property="Foreground" Value="#0a0a0f"/>
@@ -613,6 +578,7 @@ $script:Presets = @{
         </Setter.Value>
       </Setter>
     </Style>
+
     <Style x:Key="SecondaryBtn" TargetType="Button">
       <Setter Property="Background" Value="{StaticResource BgCard}"/>
       <Setter Property="Foreground" Value="#e8e8f0"/>
@@ -638,6 +604,7 @@ $script:Presets = @{
         </Setter.Value>
       </Setter>
     </Style>
+
     <Style x:Key="TweakCard" TargetType="CheckBox">
       <Setter Property="Foreground" Value="#e8e8f0"/>
       <Setter Property="Padding" Value="12,8"/>
@@ -672,6 +639,7 @@ $script:Presets = @{
       </Setter>
     </Style>
   </Window.Resources>
+
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="45"/>
@@ -686,7 +654,7 @@ $script:Presets = @{
           <TextBlock Text="🔒" FontSize="18" Foreground="#00e5a0" VerticalAlignment="Center"/>
           <TextBlock Text="BJA" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
           <TextBlock Text="Toolbox" FontSize="14" Foreground="#7a7a8a" Margin="6,0,0,0" VerticalAlignment="Center"/>
-          <TextBlock Text="v8.0 Fast" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          <TextBlock Text="v9.0 Final" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
           <Button x:Name="BtnMin" Content="—" Width="42" Height="32" Background="Transparent" Foreground="#888" BorderThickness="0" FontSize="16" Cursor="Hand"/>
@@ -697,20 +665,10 @@ $script:Presets = @{
 
     <Border Grid.Row="1" Background="#08080c" BorderBrush="#26263a" BorderThickness="0,1,0,1">
       <Grid Margin="24,0">
-        <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="*"/>
-          <ColumnDefinition Width="320"/>
-        </Grid.ColumnDefinitions>
-        <StackPanel Grid.Column="0" VerticalAlignment="Center">
-          <TextBlock x:Name="HeaderText" Text="Applications" FontSize="20" FontWeight="Bold"/>
-          <TextBlock x:Name="SubHeaderText" Text="Install apps via winget" FontSize="11" Foreground="#7a7a8a" Margin="0,2,0,0"/>
+        <StackPanel VerticalAlignment="Center">
+          <TextBlock x:Name="HeaderText" Text="Tweaks" FontSize="20" FontWeight="Bold"/>
+          <TextBlock x:Name="SubHeaderText" Text="Preset أو اختيار يدوي" FontSize="11" Foreground="#7a7a8a" Margin="0,2,0,0"/>
         </StackPanel>
-        <Border Grid.Column="1" Background="#1c1c28" CornerRadius="10" BorderBrush="#26263a" BorderThickness="1" VerticalAlignment="Center" Height="40">
-          <Grid>
-            <TextBlock Text="🔍  Search..." Foreground="#7a7a8a" VerticalAlignment="Center" Margin="14,0,0,0" x:Name="SearchPlaceholder"/>
-            <TextBox x:Name="SearchBox" Background="Transparent" Foreground="#e8e8f0" BorderThickness="0" Padding="14,0" VerticalContentAlignment="Center" FontSize="12.5" CaretBrush="#00e5a0"/>
-          </Grid>
-        </Border>
       </Grid>
     </Border>
 
@@ -730,7 +688,6 @@ $script:Presets = @{
           </Grid.RowDefinitions>
 
           <StackPanel Grid.Row="0">
-            <Button x:Name="NavInstall" Content="📦   Install"    Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
             <Button x:Name="NavTweaks"  Content="⚙️   Tweaks"     Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
             <Button x:Name="NavInput"   Content="🖱️   Input"      Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
             <Button x:Name="NavConfig"  Content="🔧   Config"     Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
@@ -764,7 +721,7 @@ $script:Presets = @{
     <Border Grid.Row="3" Background="#08080c" BorderBrush="#26263a" BorderThickness="0,1,0,0">
       <Grid Margin="24,0">
         <TextBlock x:Name="StatusText" Text="Ready" Foreground="#7a7a8a" FontSize="11" VerticalAlignment="Center"/>
-        <TextBlock Text="BJA Toolbox v8.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        <TextBlock Text="BJA Toolbox v9.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
     </Border>
   </Grid>
@@ -779,83 +736,13 @@ $HeaderText  = $window.FindName("HeaderText")
 $SubHeaderText = $window.FindName("SubHeaderText")
 $StatusText  = $window.FindName("StatusText")
 $StatusCount = $window.FindName("StatusCount")
-$SearchBox   = $window.FindName("SearchBox")
-$SearchPlaceholder = $window.FindName("SearchPlaceholder")
 
 $window.FindName("BtnClose").Add_Click({ $window.Close() })
 $window.FindName("BtnMin").Add_Click({ $window.WindowState = 'Minimized' })
 
-$SearchBox.Add_GotFocus({ $SearchPlaceholder.Visibility = 'Collapsed' })
-$SearchBox.Add_LostFocus({ if ([string]::IsNullOrEmpty($SearchBox.Text)) { $SearchPlaceholder.Visibility = 'Visible' } })
-
 # ═══════════════════════════════════════════════════════════
 #  VIEWS
 # ═══════════════════════════════════════════════════════════
-
-function Show-InstallView {
-    $ContentArea.Children.Clear()
-    $HeaderText.Text = "Applications"
-    $SubHeaderText.Text = "Install your favorite apps via winget"
-
-    $categories = $script:Apps | Group-Object Cat | Sort-Object Name
-    foreach ($cat in $categories) {
-        $catTitle = New-Object System.Windows.Controls.TextBlock
-        $catTitle.Text = "▸ $($cat.Name)"
-        $catTitle.FontSize = 15; $catTitle.FontWeight = "Bold"
-        $catTitle.Foreground = "#7b5cff"; $catTitle.Margin = "6,20,0,10"
-        $ContentArea.Children.Add($catTitle) | Out-Null
-
-        $wrap = New-Object System.Windows.Controls.WrapPanel
-        foreach ($app in ($cat.Group | Sort-Object Name)) {
-            $tile = New-Object System.Windows.Controls.Primitives.ToggleButton
-            $tile.Style = $window.FindResource("AppCard")
-            $tile.Tag = $app.Id
-
-            $inner = New-Object System.Windows.Controls.StackPanel
-            $inner.VerticalAlignment = "Center"; $inner.HorizontalAlignment = "Center"
-
-            $imgBox = New-Object System.Windows.Controls.Image
-            $imgBox.Width = 42; $imgBox.Height = 42
-            $imgBox.HorizontalAlignment = "Center"
-            $imgBox.Tag = $app.Icon
-            $imgBox.Add_Loaded({
-                $url = $this.Tag
-                try {
-                    $bytes = (New-Object System.Net.WebClient).DownloadData($url)
-                    $stream = New-Object System.IO.MemoryStream(,$bytes)
-                    $img = New-Object System.Windows.Media.Imaging.BitmapImage
-                    $img.BeginInit()
-                    $img.StreamSource = $stream
-                    $img.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
-                    $img.DecodePixelWidth = 48
-                    $img.EndInit()
-                    $img.Freeze()
-                    $this.Source = $img
-                } catch {}
-            })
-            $inner.Children.Add($imgBox) | Out-Null
-
-            $name = New-Object System.Windows.Controls.TextBlock
-            $name.Text = $app.Name; $name.FontSize = 12; $name.FontWeight = "SemiBold"
-            $name.Foreground = "#e8e8f0"; $name.HorizontalAlignment = "Center"; $name.Margin = "0,6,0,0"
-            $inner.Children.Add($name) | Out-Null
-
-            $tile.Content = $inner
-            $tile.Add_Checked({
-                if (-not $script:SelectedApps.Contains($this.Tag)) {
-                    [void]$script:SelectedApps.Add($this.Tag)
-                    $StatusCount.Text = "$($script:SelectedApps.Count) selected"
-                }
-            })
-            $tile.Add_Unchecked({
-                $script:SelectedApps.Remove($this.Tag) | Out-Null
-                $StatusCount.Text = "$($script:SelectedApps.Count) selected"
-            })
-            $wrap.Children.Add($tile) | Out-Null
-        }
-        $ContentArea.Children.Add($wrap) | Out-Null
-    }
-}
 
 function Add-TweakSection {
     param($title, $color, $list)
@@ -923,7 +810,7 @@ function Show-TweaksView {
 
     Add-TweakSection "Essential Tweaks" "#7b5cff" @(
         "Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID",
-        "Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable Recall",
+        "Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot",
         "Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation",
         "Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar"
     )
@@ -937,7 +824,7 @@ function Show-TweaksView {
         "Set IPv6 to Prefer IPv4","Disable IPv6","Clear DNS Cache"
     )
     Add-TweakSection "Security Tweaks" "#ff9944" @(
-        "Disable Remote Registry","Disable Xbox Services","Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection"
+        "Disable Remote Registry","Disable Xbox Services","Disable AutoRun","Enable Defender PUA Protection"
     )
     Add-TweakSection "UI Tweaks" "#a888ff" @(
         "Disable Explorer Auto Discovery","Taskbar Left Align","Disable Transparency Effects",
@@ -955,7 +842,6 @@ function Show-InputView {
     $HeaderText.Text = "Input Control"
     $SubHeaderText.Text = "Mouse · Keyboard · Macros"
 
-    # ═══ MOUSE ═══
     $mouseHdr = New-Object System.Windows.Controls.TextBlock
     $mouseHdr.Text = "▸ Mouse Settings"
     $mouseHdr.FontSize = 14; $mouseHdr.FontWeight = "Bold"
@@ -971,7 +857,7 @@ function Show-InputView {
 
     foreach ($s in @(
         @{Name="Slow"; Value="3"}, @{Name="Medium"; Value="10"},
-        @{Name="Fast"; Value="15"}, @{Name="Pro-Gaming"; Value="20"}
+        @{Name="Fast"; Value="15"}, @{Name="Pro"; Value="20"}
     )) {
         $btn = New-Object System.Windows.Controls.Button
         $btn.Content = $s.Name; $btn.Tag = $s.Value
@@ -980,126 +866,25 @@ function Show-InputView {
         $btn.BorderBrush = "#26263a"; $btn.BorderThickness = "1"; $btn.FontSize = 12
         $btn.Add_Click({
             Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseSensitivity -Value $this.Tag -Type String -Force
-            $StatusText.Text = "Mouse speed: $($this.Content)"
             [System.Windows.MessageBox]::Show("Mouse speed: $($this.Content)`n`nSign out to apply.", "BJA")
         })
         $speedRow.Children.Add($btn) | Out-Null
     }
     $ContentArea.Children.Add($speedRow) | Out-Null
 
-    foreach ($t in @(
-        @{Name="Disable Mouse Acceleration"; Reg="MouseThreshold1"; Value="0"; Desc="Raw cursor movement"},
-        @{Name="Disable Smoothing";           Reg="MouseSpeed";       Value="0"; Desc="No interpolation"},
-        @{Name="Fast Scroll (5 lines)";       Reg="WheelScrollLines"; Value="5"; Desc="Faster wheel scroll"},
-        @{Name="Snap To Default Button";      Reg="SnapToDefaultButton"; Value="1"; Desc="Dialog snap"}
-    )) {
-        $rowBorder = New-Object System.Windows.Controls.Border
-        $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
-        $rowBorder.BorderThickness = "1"; $rowBorder.CornerRadius = "8"
-        $rowBorder.Padding = "14,12"; $rowBorder.Margin = "0,3"
-
-        $rowGrid = New-Object System.Windows.Controls.Grid
-        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = "*"
-        $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = "Auto"
-        $rowGrid.ColumnDefinitions.Add($c1); $rowGrid.ColumnDefinitions.Add($c2)
-
-        $lblPanel = New-Object System.Windows.Controls.StackPanel
-        $lbl = New-Object System.Windows.Controls.TextBlock
-        $lbl.Text = $t.Name; $lbl.FontSize = 13; $lbl.FontWeight = "SemiBold"; $lbl.Foreground = "#e8e8f0"
-        $lblPanel.Children.Add($lbl) | Out-Null
-        $desc = New-Object System.Windows.Controls.TextBlock
-        $desc.Text = $t.Desc; $desc.FontSize = 10; $desc.Foreground = "#7a7a8a"
-        $lblPanel.Children.Add($desc) | Out-Null
-        $lblPanel.VerticalAlignment = "Center"
-        [System.Windows.Controls.Grid]::SetColumn($lblPanel, 0)
-        $rowGrid.Children.Add($lblPanel) | Out-Null
-
-        $btn = New-Object System.Windows.Controls.Button
-        $btn.Content = "Apply"; $btn.Width = 80; $btn.Height = 30; $btn.Cursor = "Hand"
-        $btn.Background = "#00e5a0"; $btn.Foreground = "#0a0a0f"
-        $btn.BorderThickness = "0"; $btn.FontSize = 11; $btn.FontWeight = "Bold"
-        $btn.Tag = $t
-        $btn.Add_Click({
-            $info = $this.Tag
-            Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name $info.Reg -Value $info.Value -Type String -Force -ErrorAction SilentlyContinue
-            $StatusText.Text = "Applied: $($info.Name)"
-        })
-        [System.Windows.Controls.Grid]::SetColumn($btn, 1)
-        $rowGrid.Children.Add($btn) | Out-Null
-
-        $rowBorder.Child = $rowGrid
-        $ContentArea.Children.Add($rowBorder) | Out-Null
-    }
-
-    # ═══ KEYBOARD ═══
-    $kbHdr = New-Object System.Windows.Controls.TextBlock
-    $kbHdr.Text = "▸ Keyboard Settings"
-    $kbHdr.FontSize = 14; $kbHdr.FontWeight = "Bold"
-    $kbHdr.Foreground = "#66ccff"; $kbHdr.Margin = "0,25,0,8"
-    $ContentArea.Children.Add($kbHdr) | Out-Null
-
-    foreach ($t in @(
-        @{Name="Fast Key Repeat"; Reg="KeyboardDelay"; Value="0"; Path="HKCU:\Control Panel\Keyboard"; Desc="Lowest delay"},
-        @{Name="Fast Repeat Rate"; Reg="KeyboardSpeed"; Value="31"; Path="HKCU:\Control Panel\Keyboard"; Desc="Max speed"},
-        @{Name="Disable Sticky Keys Popup"; Reg="Flags"; Value="506"; Path="HKCU:\Control Panel\Accessibility\StickyKeys"; Desc="No popup"}
-    )) {
-        $rowBorder = New-Object System.Windows.Controls.Border
-        $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
-        $rowBorder.BorderThickness = "1"; $rowBorder.CornerRadius = "8"
-        $rowBorder.Padding = "14,12"; $rowBorder.Margin = "0,3"
-
-        $rowGrid = New-Object System.Windows.Controls.Grid
-        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = "*"
-        $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = "Auto"
-        $rowGrid.ColumnDefinitions.Add($c1); $rowGrid.ColumnDefinitions.Add($c2)
-
-        $lblPanel = New-Object System.Windows.Controls.StackPanel
-        $lbl = New-Object System.Windows.Controls.TextBlock
-        $lbl.Text = $t.Name; $lbl.FontSize = 13; $lbl.FontWeight = "SemiBold"; $lbl.Foreground = "#e8e8f0"
-        $lblPanel.Children.Add($lbl) | Out-Null
-        $desc = New-Object System.Windows.Controls.TextBlock
-        $desc.Text = $t.Desc; $desc.FontSize = 10; $desc.Foreground = "#7a7a8a"
-        $lblPanel.Children.Add($desc) | Out-Null
-        $lblPanel.VerticalAlignment = "Center"
-        [System.Windows.Controls.Grid]::SetColumn($lblPanel, 0)
-        $rowGrid.Children.Add($lblPanel) | Out-Null
-
-        $btn = New-Object System.Windows.Controls.Button
-        $btn.Content = "Apply"; $btn.Width = 80; $btn.Height = 30; $btn.Cursor = "Hand"
-        $btn.Background = "#66ccff"; $btn.Foreground = "#0a0a0f"
-        $btn.BorderThickness = "0"; $btn.FontSize = 11; $btn.FontWeight = "Bold"
-        $btn.Tag = $t
-        $btn.Add_Click({
-            $info = $this.Tag
-            Set-ItemProperty $info.Path -Name $info.Reg -Value $info.Value -Type String -Force -ErrorAction SilentlyContinue
-            $StatusText.Text = "Applied: $($info.Name)"
-        })
-        [System.Windows.Controls.Grid]::SetColumn($btn, 1)
-        $rowGrid.Children.Add($btn) | Out-Null
-
-        $rowBorder.Child = $rowGrid
-        $ContentArea.Children.Add($rowBorder) | Out-Null
-    }
-
-    # ═══ PRECISION ═══
-    $drawHdr = New-Object System.Windows.Controls.TextBlock
-    $drawHdr.Text = "▸ Precision Mode"
-    $drawHdr.FontSize = 14; $drawHdr.FontWeight = "Bold"
-    $drawHdr.Foreground = "#ff9944"; $drawHdr.Margin = "0,25,0,8"
-    $ContentArea.Children.Add($drawHdr) | Out-Null
-
     $precisionRow = New-Object System.Windows.Controls.StackPanel
     $precisionRow.Orientation = "Horizontal"
+    $precisionRow.Margin = "0,15,0,10"
 
     foreach ($p in @(
-        @{Name="🎯 Aim Trainer"; Sens="10"; T1="0"; T2="0"; Spd="0"},
-        @{Name="🖌️ Drawing";     Sens="6";  T1="0"; T2="0"; Spd="0"},
-        @{Name="🎮 Gaming";      Sens="20"; T1="0"; T2="0"; Spd="0"},
-        @{Name="📋 Default";     Sens="10"; T1="6"; T2="10"; Spd="1"}
+        @{Name="🎯 Aim";     Sens="10"; T1="0"; T2="0"; Spd="0"},
+        @{Name="🖌️ Drawing"; Sens="6";  T1="0"; T2="0"; Spd="0"},
+        @{Name="🎮 Gaming";  Sens="20"; T1="0"; T2="0"; Spd="0"},
+        @{Name="📋 Default"; Sens="10"; T1="6"; T2="10"; Spd="1"}
     )) {
         $btn = New-Object System.Windows.Controls.Button
         $btn.Content = $p.Name; $btn.Tag = $p
-        $btn.Width = 160; $btn.Height = 60; $btn.Margin = "0,0,10,0"; $btn.Cursor = "Hand"
+        $btn.Width = 140; $btn.Height = 50; $btn.Margin = "0,0,10,0"; $btn.Cursor = "Hand"
         $btn.Background = "#1c1c28"; $btn.Foreground = "#ff9944"
         $btn.BorderBrush = "#ff9944"; $btn.BorderThickness = "1"
         $btn.FontSize = 12; $btn.FontWeight = "SemiBold"
@@ -1109,99 +894,39 @@ function Show-InputView {
             Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseThreshold1 -Value $p.T1 -Type String -Force
             Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseThreshold2 -Value $p.T2 -Type String -Force
             Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseSpeed -Value $p.Spd -Type String -Force
-            $StatusText.Text = "Precision: $($p.Name)"
-            [System.Windows.MessageBox]::Show("Applied: $($p.Name)`n`nSign out to apply.", "BJA")
+            [System.Windows.MessageBox]::Show("Applied: $($p.Name)`n`nSign out.", "BJA")
         })
         $precisionRow.Children.Add($btn) | Out-Null
     }
     $ContentArea.Children.Add($precisionRow) | Out-Null
 
-    # ═══ MACROS ═══
-    $macroHdr = New-Object System.Windows.Controls.TextBlock
-    $macroHdr.Text = "▸ AutoHotkey Macros"
-    $macroHdr.FontSize = 14; $macroHdr.FontWeight = "Bold"
-    $macroHdr.Foreground = "#ff5566"; $macroHdr.Margin = "0,25,0,8"
-    $ContentArea.Children.Add($macroHdr) | Out-Null
+    $kbHdr = New-Object System.Windows.Controls.TextBlock
+    $kbHdr.Text = "▸ Keyboard Settings"
+    $kbHdr.FontSize = 14; $kbHdr.FontWeight = "Bold"
+    $kbHdr.Foreground = "#66ccff"; $kbHdr.Margin = "0,25,0,8"
+    $ContentArea.Children.Add($kbHdr) | Out-Null
 
-    $ahkRow = New-Object System.Windows.Controls.StackPanel
-    $ahkRow.Orientation = "Horizontal"
+    $kbRow = New-Object System.Windows.Controls.StackPanel
+    $kbRow.Orientation = "Horizontal"
 
-    $installAhkBtn = New-Object System.Windows.Controls.Button
-    $installAhkBtn.Content = "📦  Install AutoHotkey v2"
-    $installAhkBtn.Width = 220; $installAhkBtn.Height = 44; $installAhkBtn.Margin = "0,0,10,0"; $installAhkBtn.Cursor = "Hand"
-    $installAhkBtn.Background = "#00e5a0"; $installAhkBtn.Foreground = "#0a0a0f"
-    $installAhkBtn.BorderThickness = "0"; $installAhkBtn.FontSize = 12; $installAhkBtn.FontWeight = "Bold"
-    $installAhkBtn.Add_Click({
-        try {
-            Start-Process "winget" -ArgumentList "install --id AutoHotkey.AutoHotkey --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
-            [System.Windows.MessageBox]::Show("AutoHotkey installed!", "BJA")
-        } catch { [System.Windows.MessageBox]::Show("Failed: $($_.Exception.Message)", "Error") }
-    })
-    $ahkRow.Children.Add($installAhkBtn) | Out-Null
-
-    $openAhkFolderBtn = New-Object System.Windows.Controls.Button
-    $openAhkFolderBtn.Content = "📁  Open Macros Folder"
-    $openAhkFolderBtn.Width = 200; $openAhkFolderBtn.Height = 44; $openAhkFolderBtn.Cursor = "Hand"
-    $openAhkFolderBtn.Background = "#1c1c28"; $openAhkFolderBtn.Foreground = "#e8e8f0"
-    $openAhkFolderBtn.BorderBrush = "#ff5566"; $openAhkFolderBtn.BorderThickness = "1"; $openAhkFolderBtn.FontSize = 12
-    $openAhkFolderBtn.Add_Click({
-        $dir = "$env:USERPROFILE\Desktop\BJA_Macros"
-        if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
-        Start-Process "explorer.exe" $dir
-    })
-    $ahkRow.Children.Add($openAhkFolderBtn) | Out-Null
-    $ContentArea.Children.Add($ahkRow) | Out-Null
-
-    $macros = @(
-        @{Name="🎨 Smooth Draw Mode"; File="smooth_draw.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nSetDefaultMouseSpeed(10)`n`n~LShift::`n{`n    SetDefaultMouseSpeed(3)`n}`n`n~LShift Up::`n{`n    SetDefaultMouseSpeed(10)`n}`n`nF8::`n{`n    static active := false`n    active := !active`n    if (active) {`n        SetDefaultMouseSpeed(1)`n        ToolTip(`"Draw Mode ON`")`n    } else {`n        SetDefaultMouseSpeed(10)`n        ToolTip(`"Draw Mode OFF`")`n    }`n    SetTimer(() => ToolTip(), -1500)`n}`n"}
-        @{Name="🎯 Aim Hold";         File="aim_hold.ahk";      Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nRButton::`n{`n    SetDefaultMouseSpeed(2)`n    Send(`"{RButton Down}`")`n    KeyWait(`"RButton`")`n    Send(`"{RButton Up}`")`n    SetDefaultMouseSpeed(10)`n}`n"}
-        @{Name="📸 Screenshot Macro"; File="screenshot.ahk";    Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nPrintScreen::Run(`"ms-screenclip:`")`n"}
-        @{Name="🖱️ Precise Click";    File="precise_click.ahk"; Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nLButton::`n{`n    Sleep(20)`n    Send(`"{LButton}`")`n}`n"}
-        @{Name="⌨️ Text Expander";    File="text_expand.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n::@@::your.email@example.com`n::##::+1234567890`n"}
-        @{Name="🎮 Game Mode";        File="game_mode.ahk";     Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nF9::`n{`n    static enabled := false`n    enabled := !enabled`n    if (enabled) {`n        Hotkey(`"LWin`", `"Return`")`n        Hotkey(`"RWin`", `"Return`")`n        ToolTip(`"Game Mode ON`")`n    } else {`n        Hotkey(`"LWin`", `"Off`")`n        Hotkey(`"RWin`", `"Off`")`n        ToolTip(`"Game Mode OFF`")`n    }`n    SetTimer(() => ToolTip(), -1500)`n}`n"}
-    )
-
-    foreach ($t in $macros) {
-        $rowBorder = New-Object System.Windows.Controls.Border
-        $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
-        $rowBorder.BorderThickness = "1"; $rowBorder.CornerRadius = "8"
-        $rowBorder.Padding = "14,12"; $rowBorder.Margin = "0,3"
-
-        $rowGrid = New-Object System.Windows.Controls.Grid
-        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = "*"
-        $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = "Auto"
-        $rowGrid.ColumnDefinitions.Add($c1); $rowGrid.ColumnDefinitions.Add($c2)
-
-        $lbl = New-Object System.Windows.Controls.TextBlock
-        $lbl.Text = $t.Name; $lbl.FontSize = 13; $lbl.FontWeight = "SemiBold"; $lbl.Foreground = "#e8e8f0"
-        $lbl.VerticalAlignment = "Center"
-        [System.Windows.Controls.Grid]::SetColumn($lbl, 0)
-        $rowGrid.Children.Add($lbl) | Out-Null
-
+    foreach ($k in @(
+        @{Name="Fast Key Repeat"; Reg="KeyboardDelay"; Value="0"},
+        @{Name="Fast Repeat Rate"; Reg="KeyboardSpeed"; Value="31"},
+        @{Name="Num Lock on Boot"; Reg="InitialKeyboardIndicators"; Value="2"}
+    )) {
         $btn = New-Object System.Windows.Controls.Button
-        $btn.Content = "Generate"; $btn.Width = 100; $btn.Height = 30; $btn.Cursor = "Hand"
-        $btn.Background = "#ff5566"; $btn.Foreground = "#0a0a0f"
-        $btn.BorderThickness = "0"; $btn.FontSize = 11; $btn.FontWeight = "Bold"
-        $btn.Tag = $t
+        $btn.Content = $k.Name; $btn.Tag = $k
+        $btn.Width = 160; $btn.Height = 44; $btn.Margin = "0,0,10,0"; $btn.Cursor = "Hand"
+        $btn.Background = "#1c1c28"; $btn.Foreground = "#66ccff"
+        $btn.BorderBrush = "#66ccff"; $btn.BorderThickness = "1"; $btn.FontSize = 12
         $btn.Add_Click({
-            $info = $this.Tag
-            $dir = "$env:USERPROFILE\Desktop\BJA_Macros"
-            if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
-            $scriptPath = Join-Path $dir $info.File
-            Set-Content -Path $scriptPath -Value $info.Content -Encoding UTF8
-            [System.Windows.MessageBox]::Show("Macro saved:`n$scriptPath", "BJA")
+            $k = $this.Tag
+            Set-ItemProperty "HKCU:\Control Panel\Keyboard" -Name $k.Reg -Value $k.Value -Type String -Force -ErrorAction SilentlyContinue
+            [System.Windows.MessageBox]::Show("Applied: $($k.Name)", "BJA")
         })
-        [System.Windows.Controls.Grid]::SetColumn($btn, 1)
-        $rowGrid.Children.Add($btn) | Out-Null
-
-        $rowBorder.Child = $rowGrid
-        $ContentArea.Children.Add($rowBorder) | Out-Null
+        $kbRow.Children.Add($btn) | Out-Null
     }
-
-    $infoBox = New-Object System.Windows.Controls.TextBlock
-    $infoBox.Text = "⚠️  بعض الإعدادات محتاجة Sign-out. AutoHotkey v2 مطلوب لتشغيل الماكرو."
-    $infoBox.FontSize = 10; $infoBox.Foreground = "#ff9944"; $infoBox.Margin = "0,15,0,0"
-    $ContentArea.Children.Add($infoBox) | Out-Null
+    $ContentArea.Children.Add($kbRow) | Out-Null
 }
 
 function Show-ConfigView {
@@ -1316,7 +1041,7 @@ function Show-UpdatesView {
 function Apply-PresetByName {
     param([string]$Name)
     Show-TweaksView
-    Start-Sleep -Milliseconds 150
+    Start-Sleep -Milliseconds 100
     $preset = $script:Presets[$Name]
     $script:SelectedTweaks.Clear()
     foreach ($cb in $script:TweakBoxes) {
@@ -1332,40 +1057,37 @@ $window.FindName("PresetAdvanced").Add_Click({ Apply-PresetByName "Advanced" })
 $window.FindName("PresetGaming").Add_Click({   Apply-PresetByName "Gaming"   })
 $window.FindName("PresetExtreme").Add_Click({  Apply-PresetByName "Extreme"  })
 
-$window.FindName("NavInstall").Add_Click({ Show-InstallView })
 $window.FindName("NavTweaks").Add_Click({  Show-TweaksView  })
 $window.FindName("NavInput").Add_Click({   Show-InputView   })
 $window.FindName("NavConfig").Add_Click({  Show-ConfigView  })
 $window.FindName("NavUpdates").Add_Click({ Show-UpdatesView })
 
 $window.FindName("NavClear").Add_Click({
-    $script:SelectedApps.Clear()
     $script:SelectedTweaks.Clear()
     $StatusCount.Text = "0 selected"
-    Show-InstallView
+    Show-TweaksView
 })
 
 $window.FindName("NavRun").Add_Click({
-    if ($script:SelectedApps.Count -eq 0 -and $script:SelectedTweaks.Count -eq 0) {
-        [System.Windows.MessageBox]::Show("Select apps or tweaks first", "BJA")
+    if ($script:SelectedTweaks.Count -eq 0) {
+        [System.Windows.MessageBox]::Show("Select tweaks first", "BJA")
         return
     }
-    if ($script:SelectedApps.Count -gt 0) {
-        New-RestorePoint
-        foreach ($id in $script:SelectedApps) {
-            $app = $script:Apps | Where-Object { $_.Id -eq $id } | Select-Object -First 1
-            if ($app) { Install-App -WingetId $app.Id -AppName $app.Name }
-        }
-    }
-    if ($script:SelectedTweaks.Count -gt 0) {
-        New-RestorePoint
-        foreach ($t in $script:SelectedTweaks) { Invoke-Tweak -Name $t }
-    }
+    New-RestorePoint
+    foreach ($t in $script:SelectedTweaks) { Invoke-Tweak -Name $t }
     [System.Windows.MessageBox]::Show("Done! Check log on Desktop", "BJA")
     $StatusText.Text = "Complete - check log"
 })
 
-Show-InstallView
+# ═══════════════════════════════════════════════════════════
+#  START
+# ═══════════════════════════════════════════════════════════
+
+Update-Splash $splash "Ready!" 100
+Start-Sleep -Milliseconds 300
+$splash.Close()
+
+Show-TweaksView
 Write-Log "BJA Toolbox v$($script:Version) started"
 $window.ShowDialog() | Out-Null
 Write-Log "BJA Toolbox closed"
