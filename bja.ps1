@@ -1,13 +1,14 @@
 <#
 .SYNOPSIS
-    BJA Toolbox v5.1 - Ultimate Stable Edition
+    BJA Toolbox v7.0 - Input Control Ultimate Edition
 
 .DESCRIPTION
-    - 80+ Tweak مصنفة
-    - Presets تشتغل بضغطة: Standard / Minimal / Advanced / Gaming / Extreme
-    - أيقونات حقيقية للتطبيقات
-    - بدون تعليق — Lazy rendering
-    - Restore Point تلقائي + Log كامل
+    - Password Lock (142010)
+    - 6 Tabs: Install / Tweaks / Input / Config / Updates / About
+    - 80+ Tweak + Mouse/Keyboard/Drawing tuning
+    - AutoHotkey macro templates
+    - Presets: Standard / Minimal / Advanced / Gaming / Extreme
+    - Real app icons
 
 .USAGE
     irm https://raw.githubusercontent.com/gxaff/BJA/main/bja.ps1 | iex
@@ -16,7 +17,8 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = 'Continue'
 
-$script:Version       = "5.1.0"
+$script:Version       = "7.0.0"
+$script:Password      = "142010"
 $script:LogPath       = "$env:USERPROFILE\Desktop\BJA_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
 $script:SelectedApps  = New-Object System.Collections.ArrayList
 $script:SelectedTweaks= New-Object System.Collections.ArrayList
@@ -45,6 +47,91 @@ function New-RestorePoint {
 }
 
 # ═══════════════════════════════════════════════════════════
+#  PASSWORD LOCK
+# ═══════════════════════════════════════════════════════════
+
+Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
+
+function Show-PasswordLock {
+    $lockXaml = @"
+<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="BJA Lock" Height="520" Width="460"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None" ResizeMode="NoResize"
+        AllowsTransparency="True" Background="Transparent">
+  <Border Background="#0a0a0f" CornerRadius="18" BorderBrush="#00e5a0" BorderThickness="2">
+    <Grid>
+      <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="45">
+        <TextBlock Text="◈" FontSize="70" Foreground="#00e5a0" HorizontalAlignment="Center"/>
+        <TextBlock Text="BJA Toolbox" FontSize="28" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,14,0,0"/>
+        <TextBlock Text="v7.0 Ultimate" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
+        <TextBlock Text="أدخل الرمز السري" FontSize="14" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+        <Border Background="#1c1c28" CornerRadius="10" BorderBrush="#26263a" BorderThickness="1" Padding="16,12">
+          <PasswordBox x:Name="PwdBox" Background="Transparent" Foreground="#e8e8f0" BorderThickness="0"
+                       FontSize="24" HorizontalContentAlignment="Center" CaretBrush="#00e5a0" MaxLength="20"/>
+        </Border>
+        <TextBlock x:Name="ErrorText" Text="" FontSize="12" Foreground="#ff5566" HorizontalAlignment="Center" Margin="0,12,0,0"/>
+        <Button x:Name="UnlockBtn" Content="UNLOCK" Height="46" Margin="0,22,0,0"
+                Background="#00e5a0" Foreground="#0a0a0f" FontWeight="Bold" FontSize="14"
+                BorderThickness="0" Cursor="Hand">
+          <Button.Template>
+            <ControlTemplate TargetType="Button">
+              <Border Background="{TemplateBinding Background}" CornerRadius="10">
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+              </Border>
+            </ControlTemplate>
+          </Button.Template>
+        </Button>
+        <TextBlock Text="Powered by BJA" FontSize="10" Foreground="#3a3a4a" HorizontalAlignment="Center" Margin="0,22,0,0"/>
+      </StackPanel>
+    </Grid>
+  </Border>
+</Window>
+"@
+    $reader = New-Object System.Xml.XmlNodeReader ([xml]$lockXaml)
+    $lockWin = [Windows.Markup.XamlReader]::Load($reader)
+
+    $lockWin.Add_MouseLeftButtonDown({ try { $lockWin.DragMove() } catch {} })
+
+    $pwdBox   = $lockWin.FindName("PwdBox")
+    $errText  = $lockWin.FindName("ErrorText")
+    $unlockBtn= $lockWin.FindName("UnlockBtn")
+
+    $script:Unlocked = $false
+
+    $tryUnlock = {
+        if ($pwdBox.Password -eq $script:Password) {
+            $script:Unlocked = $true
+            $lockWin.Close()
+        } else {
+            $errText.Text = "❌ الرمز غلط — حاول تاني"
+            $pwdBox.Password = ""
+            $pwdBox.Focus() | Out-Null
+        }
+    }
+
+    $unlockBtn.Add_Click($tryUnlock)
+    $pwdBox.Add_KeyDown({
+        if ($_.Key -eq 'Return') { & $tryUnlock }
+    })
+
+    $pwdBox.Focus() | Out-Null
+    $lockWin.ShowDialog() | Out-Null
+
+    return $script:Unlocked
+}
+
+if (-not (Show-PasswordLock)) {
+    Write-Host ""
+    Write-Host "  ❌ Access Denied" -ForegroundColor Red
+    exit
+}
+
+Write-Host "  ✅ Access granted" -ForegroundColor Green
+Write-Host ""
+
+# ═══════════════════════════════════════════════════════════
 #  TWEAKS ENGINE
 # ═══════════════════════════════════════════════════════════
 
@@ -55,7 +142,6 @@ function Invoke-Tweak {
     try {
         switch ($Name) {
 
-            # ─── PRIVACY ───
             "Disable Telemetry" {
                 $p1 = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection"
                 if (-not (Test-Path $p1)) { New-Item $p1 -Force | Out-Null }
@@ -113,13 +199,8 @@ function Invoke-Tweak {
                 $success = $true
             }
             "Disable Recall" {
-                try {
-                    dism /Online /Disable-Feature /FeatureName:Recall /NoRestart 2>&1 | Out-Null
-                    $success = $true
-                } catch {}
+                try { dism /Online /Disable-Feature /FeatureName:Recall /NoRestart 2>&1 | Out-Null; $success = $true } catch {}
             }
-
-            # ─── PERFORMANCE ───
             "Disable Delivery Optimization" {
                 $p = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization"
                 if (-not (Test-Path $p)) { New-Item $p -Force | Out-Null }
@@ -133,8 +214,7 @@ function Invoke-Tweak {
                 try { powercfg /hibernate off; $success = $true } catch {}
             }
             "Enable GPU Scheduling" {
-                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" `
-                    -Name HwSchMode -Value 2 -Type DWord -Force
+                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\GraphicsDrivers" -Name HwSchMode -Value 2 -Type DWord -Force
                 $success = $true
             }
             "Enable Ultimate Performance" {
@@ -151,8 +231,7 @@ function Invoke-Tweak {
                 $success = $true
             }
             "Disable WPBT" {
-                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" `
-                    -Name DisableWpbtExecution -Value 1 -Type DWord -Force
+                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager" -Name DisableWpbtExecution -Value 1 -Type DWord -Force
                 $success = $true
             }
             "Disable Power Throttling" {
@@ -162,8 +241,7 @@ function Invoke-Tweak {
                 $success = $true
             }
             "Disable Background Apps" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" `
-                    -Name GlobalUserDisabled -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications" -Name GlobalUserDisabled -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
                 $success = $true
             }
             "Clear Prefetch" {
@@ -183,23 +261,18 @@ function Invoke-Tweak {
                 } catch {}
             }
             "Adjust Visual Effects for Performance" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" `
-                    -Name VisualFXSetting -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" -Name VisualFXSetting -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
                 $success = $true
             }
             "Disable Search Indexing" {
                 try { Set-Service -Name WSearch -StartupType Disabled -ErrorAction Stop; $success = $true } catch {}
             }
-
-            # ─── NETWORK ───
             "Disable IPv6" {
-                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters" `
-                    -Name DisabledComponents -Value 0xFF -Type DWord -Force
+                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters" -Name DisabledComponents -Value 0xFF -Type DWord -Force
                 $success = $true
             }
             "Set IPv6 to Prefer IPv4" {
-                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters" `
-                    -Name DisabledComponents -Value 0x20 -Type DWord -Force
+                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters" -Name DisabledComponents -Value 0x20 -Type DWord -Force
                 $success = $true
             }
             "Optimize TCP Settings" {
@@ -225,8 +298,6 @@ function Invoke-Tweak {
                 Set-ItemProperty $p -Name NonBestEffortLimit -Value 0 -Type DWord -Force
                 $success = $true
             }
-
-            # ─── SECURITY ───
             "Disable Remote Registry" {
                 try { Set-Service -Name RemoteRegistry -StartupType Disabled -ErrorAction Stop; $success = $true } catch {}
             }
@@ -238,10 +309,7 @@ function Invoke-Tweak {
                 $success = $any
             }
             "Disable SMBv1" {
-                try {
-                    dism /Online /Disable-Feature /FeatureName:SMB1Protocol /NoRestart 2>&1 | Out-Null
-                    $success = $true
-                } catch {}
+                try { dism /Online /Disable-Feature /FeatureName:SMB1Protocol /NoRestart 2>&1 | Out-Null; $success = $true } catch {}
             }
             "Disable AutoRun" {
                 $p = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer"
@@ -252,40 +320,31 @@ function Invoke-Tweak {
             "Enable Defender PUA Protection" {
                 try { Set-MpPreference -PUAProtection 1 -ErrorAction Stop; $success = $true } catch {}
             }
-
-            # ─── UI ───
             "Show File Extensions" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
-                    -Name HideFileExt -Value 0 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name HideFileExt -Value 0 -Type DWord -Force
                 $success = $true
             }
             "Show Hidden Files" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
-                    -Name Hidden -Value 1 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name Hidden -Value 1 -Type DWord -Force
                 $success = $true
             }
             "Dark Mode" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
-                    -Name AppsUseLightTheme -Value 0 -Type DWord -Force
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
-                    -Name SystemUsesLightTheme -Value 0 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name AppsUseLightTheme -Value 0 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name SystemUsesLightTheme -Value 0 -Type DWord -Force
                 $success = $true
             }
             "Enable Long Paths" {
-                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" `
-                    -Name LongPathsEnabled -Value 1 -Type DWord -Force
+                Set-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem" -Name LongPathsEnabled -Value 1 -Type DWord -Force
                 $success = $true
             }
             "Disable Widgets" {
                 try {
-                    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
-                        /v TaskbarDa /t REG_DWORD /d 0 /f 2>&1 | Out-Null
+                    reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" /v TaskbarDa /t REG_DWORD /d 0 /f 2>&1 | Out-Null
                     if ($LASTEXITCODE -eq 0) { $success = $true }
                 } catch {}
             }
             "Disable Start Recommendations" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
-                    -Name Start_IrisRecommendations -Value 0 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name Start_IrisRecommendations -Value 0 -Type DWord -Force
                 $success = $true
             }
             "Enable End Task on Taskbar" {
@@ -305,42 +364,33 @@ function Invoke-Tweak {
                 $success = $true
             }
             "Taskbar Left Align" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
-                    -Name TaskbarAl -Value 0 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name TaskbarAl -Value 0 -Type DWord -Force
                 $success = $true
             }
             "Disable Transparency Effects" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
-                    -Name EnableTransparency -Value 0 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name EnableTransparency -Value 0 -Type DWord -Force
                 $success = $true
             }
             "Disable Animations" {
-                Set-ItemProperty "HKCU:\Control Panel\Desktop\WindowMetrics" `
-                    -Name MinAnimate -Value 0 -Type String -Force -ErrorAction SilentlyContinue
+                Set-ItemProperty "HKCU:\Control Panel\Desktop\WindowMetrics" -Name MinAnimate -Value 0 -Type String -Force -ErrorAction SilentlyContinue
                 $success = $true
             }
             "Num Lock on Startup" {
-                Set-ItemProperty "HKCU:\Control Panel\Keyboard" `
-                    -Name InitialKeyboardIndicators -Value "2" -Type String -Force -ErrorAction SilentlyContinue
+                Set-ItemProperty "HKCU:\Control Panel\Keyboard" -Name InitialKeyboardIndicators -Value "2" -Type String -Force -ErrorAction SilentlyContinue
                 $success = $true
             }
             "Disable Taskbar Search" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" `
-                    -Name SearchboxTaskbarMode -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Search" -Name SearchboxTaskbarMode -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
                 $success = $true
             }
             "Hide Task View Button" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" `
-                    -Name ShowTaskViewButton -Value 0 -Type DWord -Force
+                Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name ShowTaskViewButton -Value 0 -Type DWord -Force
                 $success = $true
             }
             "Enable Game Mode" {
-                Set-ItemProperty "HKCU:\Software\Microsoft\GameBar" `
-                    -Name AutoGameModeEnabled -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+                Set-ItemProperty "HKCU:\Software\Microsoft\GameBar" -Name AutoGameModeEnabled -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
                 $success = $true
             }
-
-            # ─── MAINTENANCE ───
             "Disk Cleanup" {
                 try { Start-Process "cleanmgr.exe" -ArgumentList "/sagerun:1" -Wait -NoNewWindow; $success = $true } catch {}
             }
@@ -438,9 +488,7 @@ function Install-App {
     param([string]$WingetId, [string]$AppName)
     Write-Log "Installing: $AppName"
     try {
-        winget install --id $WingetId --silent `
-            --accept-package-agreements --accept-source-agreements `
-            --disable-interactivity 2>&1 | Out-Null
+        winget install --id $WingetId --silent --accept-package-agreements --accept-source-agreements --disable-interactivity 2>&1 | Out-Null
         Write-Log "Installed: $AppName" 'OK'
     } catch { Write-Log "Failed: $AppName" 'ERROR' }
 }
@@ -473,74 +521,21 @@ function Set-DNS {
 # ═══════════════════════════════════════════════════════════
 
 $script:Presets = @{
-    "Standard" = @(
-        "Disable Telemetry","Disable Activity History","Disable Location Tracking",
-        "Disable Advertising ID","Disable Consumer Features","Disable Delivery Optimization",
-        "Disable SysMain","Show File Extensions","Show Hidden Files","Dark Mode",
-        "Disable Widgets","Enable End Task on Taskbar","Delete Temp Files","Empty Recycle Bin"
-    )
-    "Minimal" = @(
-        "Disable Telemetry","Disable Advertising ID","Delete Temp Files","Empty Recycle Bin"
-    )
-    "Advanced" = @(
-        "Disable Telemetry","Disable Activity History","Disable Location Tracking",
-        "Disable Advertising ID","Disable Consumer Features","Disable Cortana",
-        "Disable Bing Search","Disable Copilot","Disable Recall","Disable WPBT",
-        "Disable Delivery Optimization","Disable SysMain","Disable Hibernation",
-        "Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay",
-        "Disable Power Throttling","Optimize Memory Management","Optimize SSD",
-        "Adjust Visual Effects for Performance","Disable Background Apps",
-        "Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth",
-        "Set IPv6 to Prefer IPv4","Disable Remote Registry","Disable Xbox Services",
-        "Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection",
-        "Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths",
-        "Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets",
-        "Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations",
-        "Num Lock on Startup","Disable Taskbar Search","Hide Task View Button",
-        "Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache",
-        "Reset Windows Store Cache"
-    )
-    "Gaming" = @(
-        "Disable Telemetry","Disable Consumer Features","Disable Delivery Optimization",
-        "Disable SysMain","Disable Hibernation","Enable GPU Scheduling",
-        "Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling",
-        "Disable Background Apps","Adjust Visual Effects for Performance",
-        "Optimize Memory Management","Enable Game Mode","Disable Xbox Services",
-        "Disable Widgets","Dark Mode","Optimize TCP Settings",
-        "Disable NetBIOS over TCP/IP","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache"
-    )
-    "Extreme" = @(
-        "Disable Telemetry","Disable Activity History","Disable Location Tracking",
-        "Disable Advertising ID","Disable Consumer Features","Disable Cortana",
-        "Disable Bing Search","Disable Copilot","Disable Recall","Disable WPBT",
-        "Disable Delivery Optimization","Disable SysMain","Disable Hibernation",
-        "Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay",
-        "Disable Power Throttling","Optimize Memory Management","Optimize SSD",
-        "Adjust Visual Effects for Performance","Disable Background Apps",
-        "Disable Search Indexing","Clear Prefetch","Optimize TCP Settings",
-        "Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth",
-        "Disable IPv6","Disable Remote Registry","Disable Xbox Services",
-        "Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection",
-        "Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths",
-        "Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets",
-        "Disable Start Recommendations","Enable End Task on Taskbar",
-        "Disable Transparency Effects","Disable Animations","Num Lock on Startup",
-        "Disable Taskbar Search","Hide Task View Button",
-        "Delete Temp Files","Empty Recycle Bin","Clear DNS Cache",
-        "Clear Windows Update Cache","Reset Windows Store Cache"
-    )
+    "Standard" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Delivery Optimization","Disable SysMain","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar","Delete Temp Files","Empty Recycle Bin")
+    "Minimal" = @("Disable Telemetry","Disable Advertising ID","Delete Temp Files","Empty Recycle Bin")
+    "Advanced" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable Recall","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Set IPv6 to Prefer IPv4","Disable Remote Registry","Disable Xbox Services","Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
+    "Gaming" = @("Disable Telemetry","Disable Consumer Features","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Disable Background Apps","Adjust Visual Effects for Performance","Optimize Memory Management","Enable Game Mode","Disable Xbox Services","Disable Widgets","Dark Mode","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache")
+    "Extreme" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable Recall","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Disable Search Indexing","Clear Prefetch","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Disable IPv6","Disable Remote Registry","Disable Xbox Services","Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Disable Start Recommendations","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
 }
 
 # ═══════════════════════════════════════════════════════════
-#  WPF GUI
+#  MAIN GUI
 # ═══════════════════════════════════════════════════════════
-
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BJA Toolbox v5.1" Height="850" Width="1400"
+        Title="BJA Toolbox v7.0" Height="850" Width="1400"
         WindowStartupLocation="CenterScreen"
         Background="#0a0a0f" Foreground="#e8e8f0"
         WindowStyle="None" ResizeMode="CanResizeWithGrip">
@@ -551,7 +546,6 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     <SolidColorBrush x:Key="Accent2"   Color="#7b5cff"/>
     <SolidColorBrush x:Key="TextDim"   Color="#7a7a8a"/>
     <SolidColorBrush x:Key="Border"    Color="#26263a"/>
-
     <Style x:Key="AppCard" TargetType="ToggleButton">
       <Setter Property="Background" Value="{StaticResource BgCard}"/>
       <Setter Property="BorderBrush" Value="{StaticResource Border}"/>
@@ -563,9 +557,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ToggleButton">
-            <Border x:Name="bg" Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
+            <Border x:Name="bg" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
@@ -583,7 +575,6 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         </Setter.Value>
       </Setter>
     </Style>
-
     <Style x:Key="PrimaryBtn" TargetType="Button">
       <Setter Property="Background" Value="{StaticResource Accent}"/>
       <Setter Property="Foreground" Value="#0a0a0f"/>
@@ -607,7 +598,6 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         </Setter.Value>
       </Setter>
     </Style>
-
     <Style x:Key="SecondaryBtn" TargetType="Button">
       <Setter Property="Background" Value="{StaticResource BgCard}"/>
       <Setter Property="Foreground" Value="#e8e8f0"/>
@@ -620,11 +610,8 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="bg" Background="{TemplateBinding Background}"
-                    BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
-              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
+            <Border x:Name="bg" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="8">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" VerticalAlignment="Center" Margin="{TemplateBinding Padding}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
@@ -636,7 +623,6 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
         </Setter.Value>
       </Setter>
     </Style>
-
     <Style x:Key="TweakCard" TargetType="CheckBox">
       <Setter Property="Foreground" Value="#e8e8f0"/>
       <Setter Property="Padding" Value="12,8"/>
@@ -646,16 +632,10 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="CheckBox">
-            <Border x:Name="bg" Background="{StaticResource BgCard}"
-                    BorderBrush="{StaticResource Border}"
-                    BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+            <Border x:Name="bg" Background="{StaticResource BgCard}" BorderBrush="{StaticResource Border}" BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
               <StackPanel Orientation="Horizontal">
-                <Border x:Name="cb" Width="16" Height="16" CornerRadius="3"
-                        Background="Transparent" BorderBrush="{StaticResource Border}"
-                        BorderThickness="2" Margin="0,0,10,0">
-                  <TextBlock x:Name="check" Text="✓" FontWeight="Bold" FontSize="11"
-                             Foreground="#0a0a0f" HorizontalAlignment="Center"
-                             VerticalAlignment="Center" Visibility="Collapsed"/>
+                <Border x:Name="cb" Width="16" Height="16" CornerRadius="3" Background="Transparent" BorderBrush="{StaticResource Border}" BorderThickness="2" Margin="0,0,10,0">
+                  <TextBlock x:Name="check" Text="✓" FontWeight="Bold" FontSize="11" Foreground="#0a0a0f" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
                 </Border>
                 <ContentPresenter VerticalAlignment="Center"/>
               </StackPanel>
@@ -677,7 +657,6 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
       </Setter>
     </Style>
   </Window.Resources>
-
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="45"/>
@@ -689,10 +668,10 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     <Border Grid.Row="0" Background="#08080c">
       <Grid>
         <StackPanel Orientation="Horizontal" Margin="20,0" VerticalAlignment="Center">
-          <TextBlock Text="◈" FontSize="22" Foreground="#00e5a0" VerticalAlignment="Center"/>
+          <TextBlock Text="🔒" FontSize="18" Foreground="#00e5a0" VerticalAlignment="Center"/>
           <TextBlock Text="BJA" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
           <TextBlock Text="Toolbox" FontSize="14" Foreground="#7a7a8a" Margin="6,0,0,0" VerticalAlignment="Center"/>
-          <TextBlock Text="v5.1 Ultimate" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          <TextBlock Text="v7.0 Input Edition" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
           <Button x:Name="BtnMin" Content="—" Width="42" Height="32" Background="Transparent" Foreground="#888" BorderThickness="0" FontSize="16" Cursor="Hand"/>
@@ -738,6 +717,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
           <StackPanel Grid.Row="0">
             <Button x:Name="NavInstall" Content="📦   Install"    Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
             <Button x:Name="NavTweaks"  Content="⚙️   Tweaks"     Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
+            <Button x:Name="NavInput"   Content="🖱️   Input"      Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
             <Button x:Name="NavConfig"  Content="🔧   Config"     Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
             <Button x:Name="NavUpdates" Content="🔄   Updates"    Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
           </StackPanel>
@@ -769,7 +749,7 @@ Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
     <Border Grid.Row="3" Background="#08080c" BorderBrush="#26263a" BorderThickness="0,1,0,0">
       <Grid Margin="24,0">
         <TextBlock x:Name="StatusText" Text="Ready" Foreground="#7a7a8a" FontSize="11" VerticalAlignment="Center"/>
-        <TextBlock Text="BJA Toolbox v5.1" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        <TextBlock Text="BJA Toolbox v7.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
     </Border>
   </Grid>
@@ -857,22 +837,17 @@ function Show-InstallView {
     }
 }
 
-# ─── Helper: add tweak section ───
 function Add-TweakSection {
     param($title, $color, $list)
     $hdr = New-Object System.Windows.Controls.TextBlock
-    $hdr.Text = $title
-    $hdr.FontSize = 14
-    $hdr.FontWeight = "Bold"
-    $hdr.Foreground = $color
-    $hdr.Margin = "0,14,0,6"
+    $hdr.Text = $title; $hdr.FontSize = 14; $hdr.FontWeight = "Bold"
+    $hdr.Foreground = $color; $hdr.Margin = "0,14,0,6"
     $ContentArea.Children.Add($hdr) | Out-Null
 
     foreach ($t in $list) {
         $cb = New-Object System.Windows.Controls.CheckBox
         $cb.Style = $window.FindResource("TweakCard")
-        $cb.Content = "   $t"
-        $cb.Tag = $t
+        $cb.Content = "   $t"; $cb.Tag = $t
         $cb.Add_Checked({
             if (-not $script:SelectedTweaks.Contains($this.Tag)) {
                 [void]$script:SelectedTweaks.Add($this.Tag)
@@ -894,45 +869,30 @@ function Show-TweaksView {
     $SubHeaderText.Text = "اضغط Preset فوق أو اختار يدوي"
     $script:TweakBoxes.Clear()
 
-    # Preset row
     $presetRow = New-Object System.Windows.Controls.StackPanel
     $presetRow.Orientation = "Horizontal"
     $presetRow.Margin = "0,0,0,15"
 
     foreach ($p in @(
-        @{Name="Standard"; Color="#00e5a0"},
-        @{Name="Minimal";  Color="#7b5cff"},
-        @{Name="Advanced"; Color="#ff9944"},
-        @{Name="Gaming";   Color="#66ccff"},
-        @{Name="Extreme";  Color="#ff5566"},
-        @{Name="Clear";    Color="#5a5a6a"}
+        @{Name="Standard"; Color="#00e5a0"}, @{Name="Minimal"; Color="#7b5cff"},
+        @{Name="Advanced"; Color="#ff9944"}, @{Name="Gaming"; Color="#66ccff"},
+        @{Name="Extreme"; Color="#ff5566"}, @{Name="Clear"; Color="#5a5a6a"}
     )) {
         $btn = New-Object System.Windows.Controls.Button
-        $btn.Content = $p.Name
-        $btn.Tag = $p.Name
-        $btn.Width = 130
-        $btn.Height = 34
-        $btn.Margin = "0,0,8,0"
-        $btn.Cursor = "Hand"
-        $btn.Background = "#1c1c28"
-        $btn.Foreground = $p.Color
-        $btn.BorderBrush = $p.Color
-        $btn.BorderThickness = "1"
-        $btn.FontSize = 12
-        $btn.FontWeight = "SemiBold"
+        $btn.Content = $p.Name; $btn.Tag = $p.Name
+        $btn.Width = 130; $btn.Height = 34; $btn.Margin = "0,0,8,0"
+        $btn.Cursor = "Hand"; $btn.Background = "#1c1c28"; $btn.Foreground = $p.Color
+        $btn.BorderBrush = $p.Color; $btn.BorderThickness = "1"; $btn.FontSize = 12; $btn.FontWeight = "SemiBold"
         $btn.Add_Click({
             $n = $this.Tag
             if ($n -eq "Clear") {
                 $script:SelectedTweaks.Clear()
                 foreach ($cb in $script:TweakBoxes) { $cb.IsChecked = $false }
-                $StatusCount.Text = "0 selected"
-                $StatusText.Text = "Cleared"
+                $StatusCount.Text = "0 selected"; $StatusText.Text = "Cleared"
             } else {
                 $preset = $script:Presets[$n]
                 $script:SelectedTweaks.Clear()
-                foreach ($cb in $script:TweakBoxes) {
-                    $cb.IsChecked = ($preset -contains $cb.Tag)
-                }
+                foreach ($cb in $script:TweakBoxes) { $cb.IsChecked = ($preset -contains $cb.Tag) }
                 $StatusCount.Text = "$($script:SelectedTweaks.Count) selected"
                 $StatusText.Text = "Preset applied: $n"
             }
@@ -941,55 +901,294 @@ function Show-TweaksView {
     }
     $ContentArea.Children.Add($presetRow) | Out-Null
 
-    # Sections
     Add-TweakSection "Essential Tweaks" "#7b5cff" @(
-        "Disable Telemetry","Disable Activity History","Disable Location Tracking",
-        "Disable Advertising ID","Disable Consumer Features","Disable Cortana",
-        "Disable Bing Search","Disable Copilot","Disable Recall","Disable WPBT",
-        "Disable Delivery Optimization","Disable SysMain","Disable Hibernation",
-        "Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets",
-        "Enable End Task on Taskbar"
+        "Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID",
+        "Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable Recall",
+        "Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation",
+        "Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar"
     )
-
     Add-TweakSection "Performance Tweaks" "#00e5a0" @(
-        "Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay",
-        "Disable Power Throttling","Optimize SSD","Disable Background Apps",
-        "Adjust Visual Effects for Performance","Optimize Memory Management",
-        "Enable Game Mode","Clear Prefetch","Disable Search Indexing"
+        "Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling",
+        "Optimize SSD","Disable Background Apps","Adjust Visual Effects for Performance",
+        "Optimize Memory Management","Enable Game Mode","Clear Prefetch","Disable Search Indexing"
     )
-
     Add-TweakSection "Network Tweaks" "#66ccff" @(
-        "Optimize TCP Settings","Disable NetBIOS over TCP/IP",
-        "Disable Windows Reserved Bandwidth","Set IPv6 to Prefer IPv4",
-        "Disable IPv6","Clear DNS Cache"
+        "Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth",
+        "Set IPv6 to Prefer IPv4","Disable IPv6","Clear DNS Cache"
     )
-
     Add-TweakSection "Security Tweaks" "#ff9944" @(
-        "Disable Remote Registry","Disable Xbox Services","Disable SMBv1",
-        "Disable AutoRun","Enable Defender PUA Protection"
+        "Disable Remote Registry","Disable Xbox Services","Disable SMBv1","Disable AutoRun","Enable Defender PUA Protection"
     )
-
     Add-TweakSection "UI Tweaks" "#a888ff" @(
         "Disable Explorer Auto Discovery","Taskbar Left Align","Disable Transparency Effects",
         "Disable Animations","Num Lock on Startup","Disable Taskbar Search",
         "Hide Task View Button","Disable Start Recommendations","Enable Long Paths"
     )
-
     Add-TweakSection "Advanced — CAUTION" "#ff5566" @(
-        "Disable Reserved Storage","Disable File Explorer Home","Set Services to Manual",
-        "Disable Xbox Services","Disable Lock Screen"
+        "Disable Reserved Storage","Set Services to Manual"
     )
-
     Add-TweakSection "Maintenance" "#aaaaff" @(
         "Disk Cleanup","Delete Temp Files","Empty Recycle Bin","Create Restore Point",
         "Clear Windows Update Cache","Reset Windows Store Cache"
     )
 }
 
+function Show-InputView {
+    $ContentArea.Children.Clear()
+    $HeaderText.Text = "Input Control"
+    $SubHeaderText.Text = "Mouse · Keyboard · Drawing · Macros"
+
+    # ═══ MOUSE ═══
+    $mouseHdr = New-Object System.Windows.Controls.TextBlock
+    $mouseHdr.Text = "▸ Mouse Settings"
+    $mouseHdr.FontSize = 14; $mouseHdr.FontWeight = "Bold"
+    $mouseHdr.Foreground = "#00e5a0"; $mouseHdr.Margin = "0,10,0,8"
+    $ContentArea.Children.Add($mouseHdr) | Out-Null
+
+    $speedRow = New-Object System.Windows.Controls.StackPanel
+    $speedRow.Orientation = "Horizontal"; $speedRow.Margin = "0,4,0,8"
+    $speedLabel = New-Object System.Windows.Controls.TextBlock
+    $speedLabel.Text = "Speed:"; $speedLabel.FontSize = 12
+    $speedLabel.Foreground = "#7a7a8a"; $speedLabel.VerticalAlignment = "Center"; $speedLabel.Margin = "0,0,10,0"
+    $speedRow.Children.Add($speedLabel) | Out-Null
+
+    foreach ($s in @(
+        @{Name="Slow"; Value="3"}, @{Name="Medium"; Value="10"},
+        @{Name="Fast"; Value="15"}, @{Name="Pro-Gaming"; Value="20"}
+    )) {
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = $s.Name; $btn.Tag = $s.Value
+        $btn.Width = 110; $btn.Height = 34; $btn.Margin = "0,0,6,0"; $btn.Cursor = "Hand"
+        $btn.Background = "#1c1c28"; $btn.Foreground = "#e8e8f0"
+        $btn.BorderBrush = "#26263a"; $btn.BorderThickness = "1"; $btn.FontSize = 12
+        $btn.Add_Click({
+            Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseSensitivity -Value $this.Tag -Type String -Force
+            $StatusText.Text = "Mouse speed: $($this.Content)"
+            [System.Windows.MessageBox]::Show("Mouse speed: $($this.Content)`n`nSign out to apply.", "BJA")
+        })
+        $speedRow.Children.Add($btn) | Out-Null
+    }
+    $ContentArea.Children.Add($speedRow) | Out-Null
+
+    foreach ($t in @(
+        @{Name="Disable Mouse Acceleration"; Reg="MouseThreshold1"; Value="0"; Desc="Raw cursor movement"},
+        @{Name="Disable Smoothing";           Reg="MouseSpeed";       Value="0"; Desc="No interpolation"},
+        @{Name="Fast Scroll (5 lines)";       Reg="WheelScrollLines"; Value="5"; Desc="Faster wheel scroll"},
+        @{Name="Snap To Default Button";      Reg="SnapToDefaultButton"; Value="1"; Desc="Dialog snap"}
+    )) {
+        $rowBorder = New-Object System.Windows.Controls.Border
+        $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
+        $rowBorder.BorderThickness = "1"; $rowBorder.CornerRadius = "8"
+        $rowBorder.Padding = "14,12"; $rowBorder.Margin = "0,3"
+
+        $rowGrid = New-Object System.Windows.Controls.Grid
+        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = "*"
+        $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = "Auto"
+        $rowGrid.ColumnDefinitions.Add($c1); $rowGrid.ColumnDefinitions.Add($c2)
+
+        $lblPanel = New-Object System.Windows.Controls.StackPanel
+        $lbl = New-Object System.Windows.Controls.TextBlock
+        $lbl.Text = $t.Name; $lbl.FontSize = 13; $lbl.FontWeight = "SemiBold"; $lbl.Foreground = "#e8e8f0"
+        $lblPanel.Children.Add($lbl) | Out-Null
+        $desc = New-Object System.Windows.Controls.TextBlock
+        $desc.Text = $t.Desc; $desc.FontSize = 10; $desc.Foreground = "#7a7a8a"
+        $lblPanel.Children.Add($desc) | Out-Null
+        $lblPanel.VerticalAlignment = "Center"
+        [System.Windows.Controls.Grid]::SetColumn($lblPanel, 0)
+        $rowGrid.Children.Add($lblPanel) | Out-Null
+
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = "Apply"; $btn.Width = 80; $btn.Height = 30; $btn.Cursor = "Hand"
+        $btn.Background = "#00e5a0"; $btn.Foreground = "#0a0a0f"
+        $btn.BorderThickness = "0"; $btn.FontSize = 11; $btn.FontWeight = "Bold"
+        $btn.Tag = $t
+        $btn.Add_Click({
+            $info = $this.Tag
+            Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name $info.Reg -Value $info.Value -Type String -Force -ErrorAction SilentlyContinue
+            $StatusText.Text = "Applied: $($info.Name)"
+        })
+        [System.Windows.Controls.Grid]::SetColumn($btn, 1)
+        $rowGrid.Children.Add($btn) | Out-Null
+
+        $rowBorder.Child = $rowGrid
+        $ContentArea.Children.Add($rowBorder) | Out-Null
+    }
+
+    # ═══ KEYBOARD ═══
+    $kbHdr = New-Object System.Windows.Controls.TextBlock
+    $kbHdr.Text = "▸ Keyboard Settings"
+    $kbHdr.FontSize = 14; $kbHdr.FontWeight = "Bold"
+    $kbHdr.Foreground = "#66ccff"; $kbHdr.Margin = "0,25,0,8"
+    $ContentArea.Children.Add($kbHdr) | Out-Null
+
+    foreach ($t in @(
+        @{Name="Fast Key Repeat"; Reg="KeyboardDelay"; Value="0"; Desc="Lowest delay"},
+        @{Name="Fast Repeat Rate"; Reg="KeyboardSpeed"; Value="31"; Desc="Max speed"},
+        @{Name="Disable Sticky Keys Popup"; Reg="Flags"; Value="506"; Desc="No popup"}
+    )) {
+        $rowBorder = New-Object System.Windows.Controls.Border
+        $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
+        $rowBorder.BorderThickness = "1"; $rowBorder.CornerRadius = "8"
+        $rowBorder.Padding = "14,12"; $rowBorder.Margin = "0,3"
+
+        $rowGrid = New-Object System.Windows.Controls.Grid
+        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = "*"
+        $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = "Auto"
+        $rowGrid.ColumnDefinitions.Add($c1); $rowGrid.ColumnDefinitions.Add($c2)
+
+        $lblPanel = New-Object System.Windows.Controls.StackPanel
+        $lbl = New-Object System.Windows.Controls.TextBlock
+        $lbl.Text = $t.Name; $lbl.FontSize = 13; $lbl.FontWeight = "SemiBold"; $lbl.Foreground = "#e8e8f0"
+        $lblPanel.Children.Add($lbl) | Out-Null
+        $desc = New-Object System.Windows.Controls.TextBlock
+        $desc.Text = $t.Desc; $desc.FontSize = 10; $desc.Foreground = "#7a7a8a"
+        $lblPanel.Children.Add($desc) | Out-Null
+        $lblPanel.VerticalAlignment = "Center"
+        [System.Windows.Controls.Grid]::SetColumn($lblPanel, 0)
+        $rowGrid.Children.Add($lblPanel) | Out-Null
+
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = "Apply"; $btn.Width = 80; $btn.Height = 30; $btn.Cursor = "Hand"
+        $btn.Background = "#66ccff"; $btn.Foreground = "#0a0a0f"
+        $btn.BorderThickness = "0"; $btn.FontSize = 11; $btn.FontWeight = "Bold"
+        $btn.Tag = $t
+        $btn.Add_Click({
+            $info = $this.Tag
+            $path = if ($info.Reg -eq "Flags") { "HKCU:\Control Panel\Accessibility\StickyKeys" } else { "HKCU:\Control Panel\Keyboard" }
+            Set-ItemProperty $path -Name $info.Reg -Value $info.Value -Type String -Force -ErrorAction SilentlyContinue
+            $StatusText.Text = "Applied: $($info.Name)"
+        })
+        [System.Windows.Controls.Grid]::SetColumn($btn, 1)
+        $rowGrid.Children.Add($btn) | Out-Null
+
+        $rowBorder.Child = $rowGrid
+        $ContentArea.Children.Add($rowBorder) | Out-Null
+    }
+
+    # ═══ DRAWING / PRECISION ═══
+    $drawHdr = New-Object System.Windows.Controls.TextBlock
+    $drawHdr.Text = "▸ Drawing / Precision Mode"
+    $drawHdr.FontSize = 14; $drawHdr.FontWeight = "Bold"
+    $drawHdr.Foreground = "#ff9944"; $drawHdr.Margin = "0,25,0,8"
+    $ContentArea.Children.Add($drawHdr) | Out-Null
+
+    $precisionRow = New-Object System.Windows.Controls.StackPanel
+    $precisionRow.Orientation = "Horizontal"
+
+    foreach ($p in @(
+        @{Name="🎯 Aim Trainer"; Sens="10"; T1="0"; T2="0"; Spd="0"},
+        @{Name="🖌️ Drawing";     Sens="6";  T1="0"; T2="0"; Spd="0"},
+        @{Name="🎮 Gaming";      Sens="20"; T1="0"; T2="0"; Spd="0"},
+        @{Name="📋 Default";     Sens="10"; T1="6"; T2="10"; Spd="1"}
+    )) {
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = $p.Name; $btn.Tag = $p
+        $btn.Width = 160; $btn.Height = 60; $btn.Margin = "0,0,10,0"; $btn.Cursor = "Hand"
+        $btn.Background = "#1c1c28"; $btn.Foreground = "#ff9944"
+        $btn.BorderBrush = "#ff9944"; $btn.BorderThickness = "1"
+        $btn.FontSize = 12; $btn.FontWeight = "SemiBold"
+        $btn.Add_Click({
+            $p = $this.Tag
+            Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseSensitivity -Value $p.Sens -Type String -Force
+            Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseThreshold1 -Value $p.T1 -Type String -Force
+            Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseThreshold2 -Value $p.T2 -Type String -Force
+            Set-ItemProperty "HKCU:\Control Panel\Mouse" -Name MouseSpeed -Value $p.Spd -Type String -Force
+            $StatusText.Text = "Precision: $($p.Name)"
+            [System.Windows.MessageBox]::Show("Applied: $($p.Name)`n`nSign out to apply.", "BJA")
+        })
+        $precisionRow.Children.Add($btn) | Out-Null
+    }
+    $ContentArea.Children.Add($precisionRow) | Out-Null
+
+    # ═══ MACRO ═══
+    $macroHdr = New-Object System.Windows.Controls.TextBlock
+    $macroHdr.Text = "▸ Macro / Automation"
+    $macroHdr.FontSize = 14; $macroHdr.FontWeight = "Bold"
+    $macroHdr.Foreground = "#ff5566"; $macroHdr.Margin = "0,25,0,8"
+    $ContentArea.Children.Add($macroHdr) | Out-Null
+
+    $ahkRow = New-Object System.Windows.Controls.StackPanel
+    $ahkRow.Orientation = "Horizontal"
+
+    $installAhkBtn = New-Object System.Windows.Controls.Button
+    $installAhkBtn.Content = "📦  Install AutoHotkey v2"
+    $installAhkBtn.Width = 220; $installAhkBtn.Height = 44; $installAhkBtn.Margin = "0,0,10,0"; $installAhkBtn.Cursor = "Hand"
+    $installAhkBtn.Background = "#00e5a0"; $installAhkBtn.Foreground = "#0a0a0f"
+    $installAhkBtn.BorderThickness = "0"; $installAhkBtn.FontSize = 12; $installAhkBtn.FontWeight = "Bold"
+    $installAhkBtn.Add_Click({
+        try {
+            Start-Process "winget" -ArgumentList "install --id AutoHotkey.AutoHotkey --silent --accept-package-agreements --accept-source-agreements" -Wait -NoNewWindow
+            [System.Windows.MessageBox]::Show("AutoHotkey installed!", "BJA")
+        } catch { [System.Windows.MessageBox]::Show("Failed: $($_.Exception.Message)", "Error") }
+    })
+    $ahkRow.Children.Add($installAhkBtn) | Out-Null
+
+    $openAhkFolderBtn = New-Object System.Windows.Controls.Button
+    $openAhkFolderBtn.Content = "📁  Open Macros Folder"
+    $openAhkFolderBtn.Width = 200; $openAhkFolderBtn.Height = 44; $openAhkFolderBtn.Cursor = "Hand"
+    $openAhkFolderBtn.Background = "#1c1c28"; $openAhkFolderBtn.Foreground = "#e8e8f0"
+    $openAhkFolderBtn.BorderBrush = "#ff5566"; $openAhkFolderBtn.BorderThickness = "1"; $openAhkFolderBtn.FontSize = 12
+    $openAhkFolderBtn.Add_Click({
+        $dir = "$env:USERPROFILE\Desktop\BJA_Macros"
+        if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
+        Start-Process "explorer.exe" $dir
+    })
+    $ahkRow.Children.Add($openAhkFolderBtn) | Out-Null
+    $ContentArea.Children.Add($ahkRow) | Out-Null
+
+    foreach ($t in @(
+        @{Name="🎨 Smooth Draw Mode"; File="smooth_draw.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n; Hold Shift to slow cursor`n~Shift::SetDefaultMouseSpeed, 3`n~Shift Up::SetDefaultMouseSpeed, 10`n"}
+        @{Name="🎯 Aim Hold";         File="aim_hold.ahk";      Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n; Hold RMB for slow precise movement`nRButton::SetDefaultMouseSpeed, 5`nRButton Up::SetDefaultMouseSpeed, 10`n"}
+        @{Name="📸 Screenshot Macro"; File="screenshot.ahk";    Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`nPrintScreen::Run(`"ms-screenclip:`")`n"}
+        @{Name="🖱️ Precise Click";    File="precise_click.ahk"; Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n; Delays click for precision`nLButton::Send(`"{LButton}`")`n"}
+        @{Name="⌨️ Text Expander";    File="text_expand.ahk";   Content="#Requires AutoHotkey v2.0`n#SingleInstance Force`n`n::@@::your@email.com`n::##::+1234567890`n"}
+    )) {
+        $rowBorder = New-Object System.Windows.Controls.Border
+        $rowBorder.Background = "#1c1c28"; $rowBorder.BorderBrush = "#26263a"
+        $rowBorder.BorderThickness = "1"; $rowBorder.CornerRadius = "8"
+        $rowBorder.Padding = "14,12"; $rowBorder.Margin = "0,3"
+
+        $rowGrid = New-Object System.Windows.Controls.Grid
+        $c1 = New-Object System.Windows.Controls.ColumnDefinition; $c1.Width = "*"
+        $c2 = New-Object System.Windows.Controls.ColumnDefinition; $c2.Width = "Auto"
+        $rowGrid.ColumnDefinitions.Add($c1); $rowGrid.ColumnDefinitions.Add($c2)
+
+        $lbl = New-Object System.Windows.Controls.TextBlock
+        $lbl.Text = $t.Name; $lbl.FontSize = 13; $lbl.FontWeight = "SemiBold"; $lbl.Foreground = "#e8e8f0"
+        $lbl.VerticalAlignment = "Center"
+        [System.Windows.Controls.Grid]::SetColumn($lbl, 0)
+        $rowGrid.Children.Add($lbl) | Out-Null
+
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = "Generate"; $btn.Width = 100; $btn.Height = 30; $btn.Cursor = "Hand"
+        $btn.Background = "#ff5566"; $btn.Foreground = "#0a0a0f"
+        $btn.BorderThickness = "0"; $btn.FontSize = 11; $btn.FontWeight = "Bold"
+        $btn.Tag = $t
+        $btn.Add_Click({
+            $info = $this.Tag
+            $dir = "$env:USERPROFILE\Desktop\BJA_Macros"
+            if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
+            $scriptPath = Join-Path $dir $info.File
+            Set-Content -Path $scriptPath -Value $info.Content -Encoding UTF8
+            [System.Windows.MessageBox]::Show("Macro saved to:`n$scriptPath", "BJA")
+        })
+        [System.Windows.Controls.Grid]::SetColumn($btn, 1)
+        $rowGrid.Children.Add($btn) | Out-Null
+
+        $rowBorder.Child = $rowGrid
+        $ContentArea.Children.Add($rowBorder) | Out-Null
+    }
+
+    $infoBox = New-Object System.Windows.Controls.TextBlock
+    $infoBox.Text = "⚠️  بعض الإعدادات محتاجة Sign-out. AutoHotkey مطلوب لتشغيل الماكرو."
+    $infoBox.FontSize = 10; $infoBox.Foreground = "#ff9944"; $infoBox.Margin = "0,15,0,0"
+    $ContentArea.Children.Add($infoBox) | Out-Null
+}
+
 function Show-ConfigView {
     $ContentArea.Children.Clear()
     $HeaderText.Text = "Configuration"
-    $SubHeaderText.Text = "DNS, Fixes, Legacy panels"
+    $SubHeaderText.Text = "DNS · Fixes · Panels"
 
     $dnsTitle = New-Object System.Windows.Controls.TextBlock
     $dnsTitle.Text = "▸ DNS Provider"
@@ -1095,10 +1294,6 @@ function Show-UpdatesView {
     }
 }
 
-# ═══════════════════════════════════════════════════════════
-#  PRESET BUTTONS IN SIDEBAR
-# ═══════════════════════════════════════════════════════════
-
 function Apply-PresetByName {
     param([string]$Name)
     Show-TweaksView
@@ -1118,12 +1313,9 @@ $window.FindName("PresetAdvanced").Add_Click({ Apply-PresetByName "Advanced" })
 $window.FindName("PresetGaming").Add_Click({   Apply-PresetByName "Gaming"   })
 $window.FindName("PresetExtreme").Add_Click({  Apply-PresetByName "Extreme"  })
 
-# ═══════════════════════════════════════════════════════════
-#  NAVIGATION
-# ═══════════════════════════════════════════════════════════
-
 $window.FindName("NavInstall").Add_Click({ Show-InstallView })
 $window.FindName("NavTweaks").Add_Click({  Show-TweaksView  })
+$window.FindName("NavInput").Add_Click({   Show-InputView   })
 $window.FindName("NavConfig").Add_Click({  Show-ConfigView  })
 $window.FindName("NavUpdates").Add_Click({ Show-UpdatesView })
 
@@ -1136,7 +1328,7 @@ $window.FindName("NavClear").Add_Click({
 
 $window.FindName("NavRun").Add_Click({
     if ($script:SelectedApps.Count -eq 0 -and $script:SelectedTweaks.Count -eq 0) {
-        [System.Windows.MessageBox]::Show("Select apps or tweaks first", "BJA Toolbox")
+        [System.Windows.MessageBox]::Show("Select apps or tweaks first", "BJA")
         return
     }
     if ($script:SelectedApps.Count -gt 0) {
@@ -1150,13 +1342,9 @@ $window.FindName("NavRun").Add_Click({
         New-RestorePoint
         foreach ($t in $script:SelectedTweaks) { Invoke-Tweak -Name $t }
     }
-    [System.Windows.MessageBox]::Show("Done! Check log on Desktop", "BJA Toolbox")
+    [System.Windows.MessageBox]::Show("Done! Check log on Desktop", "BJA")
     $StatusText.Text = "Complete - check log"
 })
-
-# ═══════════════════════════════════════════════════════════
-#  START
-# ═══════════════════════════════════════════════════════════
 
 Show-InstallView
 Write-Log "BJA Toolbox v$($script:Version) started"
