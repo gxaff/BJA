@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
-    BJA Toolbox v10.0 - FPS Stabilizer Edition
+    BJA Toolbox v11.0 - Customize Edition
 
 .DESCRIPTION
     - Password Lock (142010)
     - Splash Screen فوري
     - Async Icon Loading
-    - 90+ Tweak + 6 Presets
-    - FPS Stabilizer لـ Fortnite / Games
-    - Zero Hang
+    - 6 Presets: Standard, Minimal, Advanced, Gaming, Extreme, FPS Stabilizer
+    - 4 Tabs: Tweaks, Input, Customize, Config, Updates
+    - Customize Tab: Themes + Colors + Live Wallpapers
 
 .USAGE
     irm https://raw.githubusercontent.com/gxaff/BJA/main/bja.ps1 | iex
@@ -17,15 +17,11 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = 'Continue'
 
-$script:Version        = "10.0.0"
+$script:Version        = "11.0.0"
 $script:Password       = "142010"
 $script:LogPath        = "$env:USERPROFILE\Desktop\BJA_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
 $script:SelectedTweaks = New-Object System.Collections.ArrayList
 $script:TweakBoxes     = New-Object System.Collections.ArrayList
-$script:IconCacheDir   = "$env:LOCALAPPDATA\BJA\Icons"
-if (-not (Test-Path $script:IconCacheDir)) {
-    New-Item $script:IconCacheDir -ItemType Directory -Force | Out-Null
-}
 
 function Write-Log {
     param([string]$Message, [string]$Level = 'INFO')
@@ -71,7 +67,7 @@ function Show-Splash {
     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="30">
       <TextBlock Text="◈" FontSize="52" Foreground="#00e5a0" HorizontalAlignment="Center"/>
       <TextBlock Text="BJA Toolbox" FontSize="24" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,10,0,0"/>
-      <TextBlock Text="v10.0 FPS Edition" FontSize="11" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+      <TextBlock Text="v11.0 Customize" FontSize="11" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,2,0,0"/>
       <TextBlock x:Name="SplashStatus" Text="Initializing..." FontSize="11" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,20,0,8"/>
       <Border Background="#1c1c28" CornerRadius="4" Height="6" Width="320" HorizontalAlignment="Center">
         <Border x:Name="SplashBar" Background="#00e5a0" CornerRadius="4" Height="6" Width="0" HorizontalAlignment="Left"/>
@@ -86,20 +82,8 @@ function Show-Splash {
     return $splash
 }
 
-function Update-Splash {
-    param($Splash, [string]$Status, [int]$Percent)
-    try {
-        $bar = $Splash.FindName("SplashBar")
-        $txt = $Splash.FindName("SplashStatus")
-        if ($txt) { $txt.Text = $Status }
-        if ($bar) { $bar.Width = 320 * $Percent / 100 }
-        $Splash.Dispatcher.Invoke([Windows.Threading.DispatcherPriority]::Background, [action]{})
-    } catch {}
-}
-
 $splash = Show-Splash
 Start-Sleep -Milliseconds 200
-Update-Splash $splash "Loading components..." 20
 
 # ═══════════════════════════════════════════════════════════
 #  PASSWORD LOCK
@@ -118,7 +102,7 @@ function Show-PasswordLock {
       <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="45">
         <TextBlock Text="◈" FontSize="70" Foreground="#00e5a0" HorizontalAlignment="Center"/>
         <TextBlock Text="BJA Toolbox" FontSize="28" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,14,0,0"/>
-        <TextBlock Text="v10.0 FPS Edition" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
+        <TextBlock Text="v11.0 Customize" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
         <TextBlock Text="أدخل الرمز السري" FontSize="14" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,0,0,12"/>
         <Border Background="#1c1c28" CornerRadius="10" BorderBrush="#26263a" BorderThickness="1" Padding="16,12">
           <PasswordBox x:Name="PwdBox" Background="Transparent" Foreground="#e8e8f0" BorderThickness="0"
@@ -168,7 +152,6 @@ function Show-PasswordLock {
     return $script:Unlocked
 }
 
-Update-Splash $splash "Lock screen..." 40
 $splash.Close()
 
 if (-not (Show-PasswordLock)) {
@@ -461,8 +444,6 @@ function Invoke-Tweak {
             "Disable Reserved Storage" {
                 try { dism /Online /Set-ReservedStorageState /State:Disabled /Quiet 2>&1 | Out-Null; $success = $true } catch {}
             }
-
-            # ═══════════ FPS STABILIZER TWEAKS ═══════════
             "Fortnite High Priority" {
                 $exe = "FortniteClient-Win64-Shipping.exe"
                 $regPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\$exe\PerfOptions"
@@ -554,6 +535,218 @@ function Set-DNS {
 }
 
 # ═══════════════════════════════════════════════════════════
+#  CUSTOMIZE — THEMES + WALLPAPERS
+# ═══════════════════════════════════════════════════════════
+
+$script:Themes = @{
+    "Dark Neon"      = @{ Apps=0; Sys=0; Accent="cyan"    }
+    "Midnight Purple"= @{ Apps=0; Sys=0; Accent="purple"  }
+    "Cyber Blue"     = @{ Apps=0; Sys=0; Accent="blue"    }
+    "Blood Red"      = @{ Apps=0; Sys=0; Accent="red"     }
+    "Emerald"        = @{ Apps=0; Sys=0; Accent="emerald" }
+    "Sunset Orange"  = @{ Apps=0; Sys=0; Accent="orange"  }
+    "Rose Pink"      = @{ Apps=0; Sys=0; Accent="pink"    }
+    "Mono Gray"      = @{ Apps=0; Sys=0; Accent="gray"    }
+    "Light Clean"    = @{ Apps=1; Sys=1; Accent="blue"    }
+    "Light Warm"     = @{ Apps=1; Sys=1; Accent="orange"  }
+}
+
+$script:AccentColors = @{
+    "blue"    = 0x00D77800
+    "purple"  = 0x00FF5C7B
+    "red"     = 0x002323DC
+    "emerald" = 0x00A0E500
+    "orange"  = 0x000099FF
+    "pink"    = 0x00B45CFF
+    "gray"    = 0x00808080
+    "cyan"    = 0x00FFFF00
+    "yellow"  = 0x0000D7FF
+    "green"   = 0x0000FF00
+}
+
+$script:Wallpapers = @(
+    @{Name="Cyberpunk City";   URL="https://w.wallhaven.cc/full/1p/wallhaven-1p39l1.jpg";  Desc="مدينة سايبربانك"}
+    @{Name="Neon Tokyo";       URL="https://w.wallhaven.cc/full/ox/wallhaven-oxv7wl.jpg";  Desc="طوكيو نيون"}
+    @{Name="Space Nebula";     URL="https://w.wallhaven.cc/full/ne/wallhaven-neyy2j.jpg";  Desc="سديم فضائي"}
+    @{Name="Mountain Night";   URL="https://w.wallhaven.cc/full/wq/wallhaven-wqvepx.jpg";  Desc="جبل ليلي"}
+    @{Name="Aurora Borealis";  URL="https://w.wallhaven.cc/full/1p/wallhaven-1pq9jw.jpg";  Desc="شفق قطبي"}
+    @{Name="Cyber Car";        URL="https://w.wallhaven.cc/full/3l/wallhaven-3lx6xd.jpg";  Desc="سيارة سايبر"}
+    @{Name="Anime Girl";       URL="https://w.wallhaven.cc/full/we/wallhaven-weqjgp.jpg";  Desc="أنمي"}
+    @{Name="Abstract Waves";   URL="https://w.wallhaven.cc/full/28/wallhaven-28ym3x.jpg";  Desc="موجات"}
+    @{Name="Matrix Code";      URL="https://w.wallhaven.cc/full/wq/wallhaven-wqveq6.jpg";  Desc="ماتريكس"}
+    @{Name="Dark City";        URL="https://w.wallhaven.cc/full/3l/wallhaven-3lxg6y.jpg";  Desc="مدينة مظلمة"}
+    @{Name="Ocean Deep";       URL="https://w.wallhaven.cc/full/wy/wallhaven-wyvpmp.jpg";  Desc="محيط عميق"}
+    @{Name="Fire Flames";      URL="https://w.wallhaven.cc/full/qz/wallhaven-qzvr7r.jpg";  Desc="لهب"}
+    @{Name="Geometric";        URL="https://w.wallhaven.cc/full/l8/wallhaven-l8vpvl.jpg";  Desc="أشكال هندسية"}
+    @{Name="Rain Window";      URL="https://w.wallhaven.cc/full/9m/wallhaven-9mjoy1.jpg";  Desc="مطر"}
+    @{Name="Samurai";          URL="https://w.wallhaven.cc/full/qz/wallhaven-qzpq2r.jpg";  Desc="ساموراي"}
+)
+
+function Apply-Theme {
+    param([string]$ThemeName)
+    if (-not $script:Themes.ContainsKey($ThemeName)) { return }
+    $t = $script:Themes[$ThemeName]
+    
+    Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
+        -Name AppsUseLightTheme -Value $t.Apps -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
+        -Name SystemUsesLightTheme -Value $t.Sys -Type DWord -Force -ErrorAction SilentlyContinue
+    
+    if ($t.Accent -and $script:AccentColors.ContainsKey($t.Accent)) {
+        $val = $script:AccentColors[$t.Accent]
+        Set-ItemProperty "HKCU:\Software\Microsoft\Windows\DWM" -Name AccentColor -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
+        Set-ItemProperty "HKCU:\Software\Microsoft\Windows\DWM" -Name ColorizationColor -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
+        Set-ItemProperty "HKCU:\Software\Microsoft\Windows\DWM" -Name ColorPrevalence -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+        Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
+            -Name ColorPrevalence -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    }
+    
+    Write-Log "Theme: $ThemeName" 'OK'
+}
+
+function Apply-AccentColor {
+    param([string]$ColorName)
+    if (-not $script:AccentColors.ContainsKey($ColorName)) { return }
+    $val = $script:AccentColors[$ColorName]
+    
+    Set-ItemProperty "HKCU:\Software\Microsoft\Windows\DWM" -Name AccentColor -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty "HKCU:\Software\Microsoft\Windows\DWM" -Name ColorizationColor -Value $val -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty "HKCU:\Software\Microsoft\Windows\DWM" -Name ColorPrevalence -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
+        -Name ColorPrevalence -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+    Write-Log "Accent: $ColorName" 'OK'
+}
+
+function Apply-Wallpaper {
+    param([string]$Url, [string]$Name)
+    try {
+        $dir = "$env:LOCALAPPDATA\BJA\Wallpapers"
+        if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
+        $file = Join-Path $dir "$Name.jpg"
+        
+        if (-not (Test-Path $file)) {
+            (New-Object System.Net.WebClient).DownloadFile($Url, $file)
+        }
+        
+        Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WP {
+    [DllImport("user32.dll", CharSet=CharSet.Auto)]
+    public static extern int SystemParametersInfo(int a, int b, string c, int d);
+}
+"@ -ErrorAction SilentlyContinue
+        
+        [WP]::SystemParametersInfo(20, 0, $file, 3) | Out-Null
+        Set-ItemProperty "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value "10" -Type String -Force -ErrorAction SilentlyContinue
+        Set-ItemProperty "HKCU:\Control Panel\Desktop" -Name TileWallpaper -Value "0" -Type String -Force -ErrorAction SilentlyContinue
+        
+        Write-Log "Wallpaper: $Name" 'OK'
+        return $true
+    } catch {
+        Write-Log "Wallpaper failed: $Name" 'ERROR'
+        return $false
+    }
+}
+
+function Show-CustomizeView {
+    $ContentArea.Children.Clear()
+    $HeaderText.Text = "Customize"
+    $SubHeaderText.Text = "Themes · Colors · Wallpapers — تطبيق فوري بدون Restart"
+    
+    # ═══ THEMES ═══
+    $themeHdr = New-Object System.Windows.Controls.TextBlock
+    $themeHdr.Text = "▸ Themes"
+    $themeHdr.FontSize = 15; $themeHdr.FontWeight = "Bold"
+    $themeHdr.Foreground = "#7b5cff"; $themeHdr.Margin = "0,10,0,10"
+    $ContentArea.Children.Add($themeHdr) | Out-Null
+    
+    $themeWrap = New-Object System.Windows.Controls.WrapPanel
+    foreach ($themeName in $script:Themes.Keys) {
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = $themeName
+        $btn.Tag = $themeName
+        $btn.Width = 180; $btn.Height = 50; $btn.Margin = "6"
+        $btn.Cursor = "Hand"
+        $btn.Background = "#1c1c28"; $btn.Foreground = "#e8e8f0"
+        $btn.BorderBrush = "#7b5cff"; $btn.BorderThickness = "1"
+        $btn.FontSize = 12; $btn.FontWeight = "SemiBold"
+        $btn.Add_Click({
+            Apply-Theme -ThemeName $this.Tag
+            $StatusText.Text = "Theme: $($this.Tag)"
+        })
+        $themeWrap.Children.Add($btn) | Out-Null
+    }
+    $ContentArea.Children.Add($themeWrap) | Out-Null
+    
+    # ═══ COLORS ═══
+    $colorHdr = New-Object System.Windows.Controls.TextBlock
+    $colorHdr.Text = "▸ Accent Colors"
+    $colorHdr.FontSize = 15; $colorHdr.FontWeight = "Bold"
+    $colorHdr.Foreground = "#00e5a0"; $colorHdr.Margin = "0,25,0,10"
+    $ContentArea.Children.Add($colorHdr) | Out-Null
+    
+    $colorWrap = New-Object System.Windows.Controls.WrapPanel
+    foreach ($colorName in $script:AccentColors.Keys) {
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Content = $colorName
+        $btn.Tag = $colorName
+        $btn.Width = 130; $btn.Height = 44; $btn.Margin = "6"
+        $btn.Cursor = "Hand"
+        $btn.Background = "#1c1c28"; $btn.Foreground = "#e8e8f0"
+        $btn.BorderBrush = "#26263a"; $btn.BorderThickness = "1"
+        $btn.FontSize = 12; $btn.FontWeight = "SemiBold"
+        $btn.Add_Click({
+            Apply-AccentColor -ColorName $this.Tag
+            $StatusText.Text = "Accent: $($this.Tag)"
+        })
+        $colorWrap.Children.Add($btn) | Out-Null
+    }
+    $ContentArea.Children.Add($colorWrap) | Out-Null
+    
+    # ═══ WALLPAPERS ═══
+    $wallHdr = New-Object System.Windows.Controls.TextBlock
+    $wallHdr.Text = "▸ Wallpapers"
+    $wallHdr.FontSize = 15; $wallHdr.FontWeight = "Bold"
+    $wallHdr.Foreground = "#ff9944"; $wallHdr.Margin = "0,25,0,10"
+    $ContentArea.Children.Add($wallHdr) | Out-Null
+    
+    $wallWrap = New-Object System.Windows.Controls.WrapPanel
+    foreach ($w in $script:Wallpapers) {
+        $btn = New-Object System.Windows.Controls.Button
+        $btn.Tag = $w
+        $btn.Width = 180; $btn.Height = 70; $btn.Margin = "6"
+        $btn.Cursor = "Hand"
+        $btn.Background = "#1c1c28"; $btn.Foreground = "#ff9944"
+        $btn.BorderBrush = "#ff9944"; $btn.BorderThickness = "1"
+        $btn.FontSize = 12; $btn.FontWeight = "SemiBold"
+        
+        $panel = New-Object System.Windows.Controls.StackPanel
+        $n = New-Object System.Windows.Controls.TextBlock
+        $n.Text = $w.Name; $n.FontWeight = "Bold"
+        $n.Foreground = "#e8e8f0"; $n.HorizontalAlignment = "Center"
+        $panel.Children.Add($n) | Out-Null
+        $d = New-Object System.Windows.Controls.TextBlock
+        $d.Text = $w.Desc; $d.FontSize = 10
+        $d.Foreground = "#7a7a8a"; $d.HorizontalAlignment = "Center"
+        $panel.Children.Add($d) | Out-Null
+        $btn.Content = $panel
+        
+        $btn.Add_Click({
+            $wp = $this.Tag
+            $StatusText.Text = "Downloading: $($wp.Name)..."
+            if (Apply-Wallpaper -Url $wp.URL -Name $wp.Name) {
+                $StatusText.Text = "Applied: $($wp.Name)"
+            } else {
+                $StatusText.Text = "Failed"
+            }
+        })
+        $wallWrap.Children.Add($btn) | Out-Null
+    }
+    $ContentArea.Children.Add($wallWrap) | Out-Null
+}
+
+# ═══════════════════════════════════════════════════════════
 #  PRESETS
 # ═══════════════════════════════════════════════════════════
 
@@ -563,19 +756,7 @@ $script:Presets = @{
     "Advanced" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Set IPv6 to Prefer IPv4","Disable Remote Registry","Disable Xbox Services","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
     "Gaming" = @("Disable Telemetry","Disable Consumer Features","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Disable Background Apps","Adjust Visual Effects for Performance","Optimize Memory Management","Enable Game Mode","Disable Xbox Services","Disable Widgets","Dark Mode","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache")
     "Extreme" = @("Disable Telemetry","Disable Activity History","Disable Location Tracking","Disable Advertising ID","Disable Consumer Features","Disable Cortana","Disable Bing Search","Disable Copilot","Disable WPBT","Disable Delivery Optimization","Disable SysMain","Disable Hibernation","Enable GPU Scheduling","Enable Ultimate Performance","Disable Startup Delay","Disable Power Throttling","Optimize Memory Management","Optimize SSD","Adjust Visual Effects for Performance","Disable Background Apps","Disable Search Indexing","Clear Prefetch","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Disable IPv6","Disable Remote Registry","Disable Xbox Services","Disable AutoRun","Enable Defender PUA Protection","Disable Reserved Storage","Disable Explorer Auto Discovery","Enable Long Paths","Show File Extensions","Show Hidden Files","Dark Mode","Disable Widgets","Disable Start Recommendations","Enable End Task on Taskbar","Disable Transparency Effects","Disable Animations","Num Lock on Startup","Disable Taskbar Search","Hide Task View Button","Delete Temp Files","Empty Recycle Bin","Clear DNS Cache","Clear Windows Update Cache","Reset Windows Store Cache")
-    "FPS Stabilizer" = @(
-        "Disable SysMain","Disable Hibernation","Disable Startup Delay",
-        "Disable Power Throttling","Disable Background Apps","Disable Search Indexing",
-        "Clear Prefetch","Optimize Memory Management","Enable Ultimate Performance",
-        "Adjust Visual Effects for Performance","Enable GPU Scheduling",
-        "Optimize TCP Settings","Disable NetBIOS over TCP/IP",
-        "Disable Windows Reserved Bandwidth","Clear DNS Cache",
-        "Disable Xbox Services","Disable Remote Registry",
-        "Fortnite High Priority","Disable VBS","Enable Game Mode",
-        "Disable Game DVR","Network No Delay","Mouse Polling Boost",
-        "Kill Bloat Processes","Delete Temp Files","Empty Recycle Bin",
-        "Clear Windows Update Cache"
-    )
+    "FPS Stabilizer" = @("Disable SysMain","Disable Hibernation","Disable Startup Delay","Disable Power Throttling","Disable Background Apps","Disable Search Indexing","Clear Prefetch","Optimize Memory Management","Enable Ultimate Performance","Adjust Visual Effects for Performance","Enable GPU Scheduling","Optimize TCP Settings","Disable NetBIOS over TCP/IP","Disable Windows Reserved Bandwidth","Clear DNS Cache","Disable Xbox Services","Disable Remote Registry","Fortnite High Priority","Disable VBS","Enable Game Mode","Disable Game DVR","Network No Delay","Mouse Polling Boost","Kill Bloat Processes","Delete Temp Files","Empty Recycle Bin","Clear Windows Update Cache")
 }
 
 # ═══════════════════════════════════════════════════════════
@@ -585,7 +766,7 @@ $script:Presets = @{
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BJA Toolbox v10.0" Height="850" Width="1400"
+        Title="BJA Toolbox v11.0" Height="850" Width="1400"
         WindowStartupLocation="CenterScreen"
         Background="#0a0a0f" Foreground="#e8e8f0"
         WindowStyle="None" ResizeMode="CanResizeWithGrip">
@@ -696,7 +877,7 @@ $script:Presets = @{
           <TextBlock Text="🔒" FontSize="18" Foreground="#00e5a0" VerticalAlignment="Center"/>
           <TextBlock Text="BJA" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
           <TextBlock Text="Toolbox" FontSize="14" Foreground="#7a7a8a" Margin="6,0,0,0" VerticalAlignment="Center"/>
-          <TextBlock Text="v10.0 FPS" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          <TextBlock Text="v11.0" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
           <Button x:Name="BtnMin" Content="—" Width="42" Height="32" Background="Transparent" Foreground="#888" BorderThickness="0" FontSize="16" Cursor="Hand"/>
@@ -730,21 +911,22 @@ $script:Presets = @{
           </Grid.RowDefinitions>
 
           <StackPanel Grid.Row="0">
-            <Button x:Name="NavTweaks"  Content="⚙️   Tweaks"     Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
-            <Button x:Name="NavInput"   Content="🖱️   Input"      Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
-            <Button x:Name="NavConfig"  Content="🔧   Config"     Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
-            <Button x:Name="NavUpdates" Content="🔄   Updates"    Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
+            <Button x:Name="NavTweaks"    Content="⚙️   Tweaks"       Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
+            <Button x:Name="NavInput"     Content="🖱️   Input"        Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
+            <Button x:Name="NavCustomize" Content="🎨   Customize"    Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
+            <Button x:Name="NavConfig"    Content="🔧   Config"       Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
+            <Button x:Name="NavUpdates"   Content="🔄   Updates"      Style="{StaticResource SecondaryBtn}" Margin="0,4"/>
           </StackPanel>
 
           <TextBlock Grid.Row="1" Text="PRESETS" FontSize="10" Foreground="#7a7a8a" FontWeight="Bold" Margin="0,18,0,6"/>
 
           <StackPanel Grid.Row="2">
-            <Button x:Name="PresetStandard"    Content="⚡  Standard"     Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
-            <Button x:Name="PresetMinimal"     Content="🌿  Minimal"      Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
-            <Button x:Name="PresetAdvanced"    Content="🔥  Advanced"     Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
-            <Button x:Name="PresetGaming"      Content="🎮  Gaming"       Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
-            <Button x:Name="PresetExtreme"     Content="💀  Extreme"      Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
-            <Button x:Name="PresetFPS"         Content="🚀  FPS Stabilizer" Style="{StaticResource SecondaryBtn}" Margin="0,3" Background="#1a3a2a" BorderBrush="#00e5a0" Foreground="#00e5a0"/>
+            <Button x:Name="PresetStandard" Content="⚡  Standard"      Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
+            <Button x:Name="PresetMinimal"  Content="🌿  Minimal"       Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
+            <Button x:Name="PresetAdvanced" Content="🔥  Advanced"      Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
+            <Button x:Name="PresetGaming"   Content="🎮  Gaming"        Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
+            <Button x:Name="PresetExtreme"  Content="💀  Extreme"       Style="{StaticResource SecondaryBtn}" Margin="0,3"/>
+            <Button x:Name="PresetFPS"      Content="🚀  FPS Stabilizer" Style="{StaticResource SecondaryBtn}" Margin="0,3" Background="#1a3a2a" BorderBrush="#00e5a0" Foreground="#00e5a0"/>
           </StackPanel>
 
           <StackPanel Grid.Row="3">
@@ -764,7 +946,7 @@ $script:Presets = @{
     <Border Grid.Row="3" Background="#08080c" BorderBrush="#26263a" BorderThickness="0,1,0,0">
       <Grid Margin="24,0">
         <TextBlock x:Name="StatusText" Text="Ready" Foreground="#7a7a8a" FontSize="11" VerticalAlignment="Center"/>
-        <TextBlock Text="BJA Toolbox v10.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        <TextBlock Text="BJA Toolbox v11.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
     </Border>
   </Grid>
@@ -1042,10 +1224,11 @@ $window.FindName("PresetGaming").Add_Click({   Apply-PresetByName "Gaming"   })
 $window.FindName("PresetExtreme").Add_Click({  Apply-PresetByName "Extreme"  })
 $window.FindName("PresetFPS").Add_Click({      Apply-PresetByName "FPS Stabilizer" })
 
-$window.FindName("NavTweaks").Add_Click({  Show-TweaksView  })
-$window.FindName("NavInput").Add_Click({   Show-InputView   })
-$window.FindName("NavConfig").Add_Click({  Show-ConfigView  })
-$window.FindName("NavUpdates").Add_Click({ Show-UpdatesView })
+$window.FindName("NavTweaks").Add_Click({    Show-TweaksView     })
+$window.FindName("NavInput").Add_Click({     Show-InputView      })
+$window.FindName("NavCustomize").Add_Click({ Show-CustomizeView  })
+$window.FindName("NavConfig").Add_Click({    Show-ConfigView     })
+$window.FindName("NavUpdates").Add_Click({   Show-UpdatesView    })
 
 $window.FindName("NavClear").Add_Click({
     $script:SelectedTweaks.Clear()
