@@ -1,14 +1,13 @@
 <#
 .SYNOPSIS
-    BJA Toolbox v11.0 - Customize Edition
+    BJA Toolbox v11.1 - Wallpaper Fixed Edition
 
 .DESCRIPTION
     - Password Lock (142010)
     - Splash Screen فوري
-    - Async Icon Loading
     - 6 Presets: Standard, Minimal, Advanced, Gaming, Extreme, FPS Stabilizer
-    - 4 Tabs: Tweaks, Input, Customize, Config, Updates
-    - Customize Tab: Themes + Colors + Live Wallpapers
+    - 5 Tabs: Tweaks, Input, Customize, Config, Updates
+    - Customize Tab: 10 Themes + 10 Colors + 20 Wallpapers (Unsplash)
 
 .USAGE
     irm https://raw.githubusercontent.com/gxaff/BJA/main/bja.ps1 | iex
@@ -17,7 +16,7 @@
 #Requires -RunAsAdministrator
 $ErrorActionPreference = 'Continue'
 
-$script:Version        = "11.0.0"
+$script:Version        = "11.1.0"
 $script:Password       = "142010"
 $script:LogPath        = "$env:USERPROFILE\Desktop\BJA_Log_$(Get-Date -Format 'yyyyMMdd_HHmmss').txt"
 $script:SelectedTweaks = New-Object System.Collections.ArrayList
@@ -44,10 +43,6 @@ function New-RestorePoint {
     } catch { Write-Log "Restore point skipped" 'WARN' }
 }
 
-# ═══════════════════════════════════════════════════════════
-#  WPF SETUP
-# ═══════════════════════════════════════════════════════════
-
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase
 
 # ═══════════════════════════════════════════════════════════
@@ -67,8 +62,8 @@ function Show-Splash {
     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="30">
       <TextBlock Text="◈" FontSize="52" Foreground="#00e5a0" HorizontalAlignment="Center"/>
       <TextBlock Text="BJA Toolbox" FontSize="24" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,10,0,0"/>
-      <TextBlock Text="v11.0 Customize" FontSize="11" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-      <TextBlock x:Name="SplashStatus" Text="Initializing..." FontSize="11" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,20,0,8"/>
+      <TextBlock Text="v11.1 Wallpaper Fixed" FontSize="11" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+      <TextBlock x:Name="SplashStatus" Text="Loading..." FontSize="11" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,20,0,8"/>
       <Border Background="#1c1c28" CornerRadius="4" Height="6" Width="320" HorizontalAlignment="Center">
         <Border x:Name="SplashBar" Background="#00e5a0" CornerRadius="4" Height="6" Width="0" HorizontalAlignment="Left"/>
       </Border>
@@ -102,7 +97,7 @@ function Show-PasswordLock {
       <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="45">
         <TextBlock Text="◈" FontSize="70" Foreground="#00e5a0" HorizontalAlignment="Center"/>
         <TextBlock Text="BJA Toolbox" FontSize="28" FontWeight="Bold" Foreground="#e8e8f0" HorizontalAlignment="Center" Margin="0,14,0,0"/>
-        <TextBlock Text="v11.0 Customize" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
+        <TextBlock Text="v11.1" FontSize="12" Foreground="#7b5cff" HorizontalAlignment="Center" Margin="0,4,0,32"/>
         <TextBlock Text="أدخل الرمز السري" FontSize="14" Foreground="#7a7a8a" HorizontalAlignment="Center" Margin="0,0,0,12"/>
         <Border Background="#1c1c28" CornerRadius="10" BorderBrush="#26263a" BorderThickness="1" Padding="16,12">
           <PasswordBox x:Name="PwdBox" Background="Transparent" Foreground="#e8e8f0" BorderThickness="0"
@@ -120,7 +115,6 @@ function Show-PasswordLock {
             </ControlTemplate>
           </Button.Template>
         </Button>
-        <TextBlock Text="Powered by BJA" FontSize="10" Foreground="#3a3a4a" HorizontalAlignment="Center" Margin="0,22,0,0"/>
       </StackPanel>
     </Grid>
   </Border>
@@ -140,7 +134,7 @@ function Show-PasswordLock {
             $script:Unlocked = $true
             $lockWin.Close()
         } else {
-            $errText.Text = "الرمز غلط — حاول تاني"
+            $errText.Text = "الرمز غلط"
             $pwdBox.Password = ""
             $pwdBox.Focus() | Out-Null
         }
@@ -155,11 +149,10 @@ function Show-PasswordLock {
 $splash.Close()
 
 if (-not (Show-PasswordLock)) {
-    Write-Host "  Access Denied" -ForegroundColor Red
+    Write-Host "Access Denied" -ForegroundColor Red
     exit
 }
-Write-Host "  Access granted" -ForegroundColor Green
-Write-Host ""
+Write-Host "Access granted" -ForegroundColor Green
 
 # ═══════════════════════════════════════════════════════════
 #  TWEAK ENGINE
@@ -564,22 +557,28 @@ $script:AccentColors = @{
     "green"   = 0x0000FF00
 }
 
+# Wallpapers — Unsplash (verified working URLs)
 $script:Wallpapers = @(
-    @{Name="Cyberpunk City";   URL="https://w.wallhaven.cc/full/1p/wallhaven-1p39l1.jpg";  Desc="مدينة سايبربانك"}
-    @{Name="Neon Tokyo";       URL="https://w.wallhaven.cc/full/ox/wallhaven-oxv7wl.jpg";  Desc="طوكيو نيون"}
-    @{Name="Space Nebula";     URL="https://w.wallhaven.cc/full/ne/wallhaven-neyy2j.jpg";  Desc="سديم فضائي"}
-    @{Name="Mountain Night";   URL="https://w.wallhaven.cc/full/wq/wallhaven-wqvepx.jpg";  Desc="جبل ليلي"}
-    @{Name="Aurora Borealis";  URL="https://w.wallhaven.cc/full/1p/wallhaven-1pq9jw.jpg";  Desc="شفق قطبي"}
-    @{Name="Cyber Car";        URL="https://w.wallhaven.cc/full/3l/wallhaven-3lx6xd.jpg";  Desc="سيارة سايبر"}
-    @{Name="Anime Girl";       URL="https://w.wallhaven.cc/full/we/wallhaven-weqjgp.jpg";  Desc="أنمي"}
-    @{Name="Abstract Waves";   URL="https://w.wallhaven.cc/full/28/wallhaven-28ym3x.jpg";  Desc="موجات"}
-    @{Name="Matrix Code";      URL="https://w.wallhaven.cc/full/wq/wallhaven-wqveq6.jpg";  Desc="ماتريكس"}
-    @{Name="Dark City";        URL="https://w.wallhaven.cc/full/3l/wallhaven-3lxg6y.jpg";  Desc="مدينة مظلمة"}
-    @{Name="Ocean Deep";       URL="https://w.wallhaven.cc/full/wy/wallhaven-wyvpmp.jpg";  Desc="محيط عميق"}
-    @{Name="Fire Flames";      URL="https://w.wallhaven.cc/full/qz/wallhaven-qzvr7r.jpg";  Desc="لهب"}
-    @{Name="Geometric";        URL="https://w.wallhaven.cc/full/l8/wallhaven-l8vpvl.jpg";  Desc="أشكال هندسية"}
-    @{Name="Rain Window";      URL="https://w.wallhaven.cc/full/9m/wallhaven-9mjoy1.jpg";  Desc="مطر"}
-    @{Name="Samurai";          URL="https://w.wallhaven.cc/full/qz/wallhaven-qzpq2r.jpg";  Desc="ساموراي"}
+    @{Name="Cyberpunk City";   URL="https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=1920&q=95&fm=jpg"; Desc="مدينة سايبربانك"}
+    @{Name="Neon Tokyo";       URL="https://images.unsplash.com/photo-1533050487297-09b450131914?w=1920&q=95&fm=jpg"; Desc="طوكيو نيون"}
+    @{Name="Space Nebula";     URL="https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=1920&q=95&fm=jpg"; Desc="سديم فضائي"}
+    @{Name="Mountain Night";   URL="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=95&fm=jpg"; Desc="جبل ليلي"}
+    @{Name="Aurora Borealis";  URL="https://images.unsplash.com/photo-1483347756197-71ef80e95f73?w=1920&q=95&fm=jpg"; Desc="شفق قطبي"}
+    @{Name="Cyber Car";        URL="https://images.unsplash.com/photo-1544636331-e26879cd4d9b?w=1920&q=95&fm=jpg"; Desc="سيارة سايبر"}
+    @{Name="Anime";            URL="https://images.unsplash.com/photo-1578632767115-351597cf2477?w=1920&q=95&fm=jpg"; Desc="أنمي"}
+    @{Name="Abstract Waves";   URL="https://images.unsplash.com/photo-1550859492-d5da9d8e45f3?w=1920&q=95&fm=jpg"; Desc="موجات"}
+    @{Name="Matrix";           URL="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1920&q=95&fm=jpg"; Desc="ماتريكس"}
+    @{Name="Dark City";        URL="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1920&q=95&fm=jpg"; Desc="مدينة مظلمة"}
+    @{Name="Ocean Deep";       URL="https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=1920&q=95&fm=jpg"; Desc="محيط عميق"}
+    @{Name="Fire";             URL="https://images.unsplash.com/photo-1519904981063-b0cf448d479e?w=1920&q=95&fm=jpg"; Desc="لهب"}
+    @{Name="Geometric";        URL="https://images.unsplash.com/photo-1557672172-298e090bd0f1?w=1920&q=95&fm=jpg"; Desc="أشكال هندسية"}
+    @{Name="Rain";             URL="https://images.unsplash.com/photo-1519692933481-e162a57d6721?w=1920&q=95&fm=jpg"; Desc="مطر"}
+    @{Name="Samurai";          URL="https://images.unsplash.com/photo-1618477388954-7852f32655ec?w=1920&q=95&fm=jpg"; Desc="ساموراي"}
+    @{Name="Galaxy";           URL="https://images.unsplash.com/photo-1543722530-d2c3201371e7?w=1920&q=95&fm=jpg"; Desc="مجرة"}
+    @{Name="Moon";             URL="https://images.unsplash.com/photo-1522030299830-16b8d3d049fe?w=1920&q=95&fm=jpg"; Desc="قمر"}
+    @{Name="Forest";           URL="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&q=95&fm=jpg"; Desc="غابة"}
+    @{Name="Neon City";        URL="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=1920&q=95&fm=jpg"; Desc="مدينة نيون"}
+    @{Name="Sport Car";        URL="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=1920&q=95&fm=jpg"; Desc="سيارة رياضية"}
 )
 
 function Apply-Theme {
@@ -600,7 +599,6 @@ function Apply-Theme {
         Set-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" `
             -Name ColorPrevalence -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
     }
-    
     Write-Log "Theme: $ThemeName" 'OK'
 }
 
@@ -619,32 +617,47 @@ function Apply-AccentColor {
 
 function Apply-Wallpaper {
     param([string]$Url, [string]$Name)
+    
     try {
         $dir = "$env:LOCALAPPDATA\BJA\Wallpapers"
         if (-not (Test-Path $dir)) { New-Item $dir -ItemType Directory -Force | Out-Null }
-        $file = Join-Path $dir "$Name.jpg"
         
-        if (-not (Test-Path $file)) {
-            (New-Object System.Net.WebClient).DownloadFile($Url, $file)
+        $safeName = ($Name -replace '[\\/:*?"<>|]','_')
+        $file = Join-Path $dir "$safeName.jpg"
+        
+        if (-not (Test-Path $file) -or (Get-Item $file).Length -lt 5000) {
+            $wc = New-Object System.Net.WebClient
+            $wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0")
+            $wc.Headers.Add("Accept", "image/*,*/*")
+            $wc.DownloadFile($Url, $file)
+            $wc.Dispose()
         }
         
-        Add-Type @"
+        if (-not (Test-Path $file) -or (Get-Item $file).Length -lt 5000) {
+            Write-Log "Wallpaper too small: $Name" 'ERROR'
+            return $false
+        }
+        
+        if (-not ("WPHelper" -as [type])) {
+            Add-Type @"
 using System;
 using System.Runtime.InteropServices;
-public class WP {
+public class WPHelper {
     [DllImport("user32.dll", CharSet=CharSet.Auto)]
-    public static extern int SystemParametersInfo(int a, int b, string c, int d);
+    public static extern int SystemParametersInfo(int uAction, int uParam, string lpvParam, int fuWinIni);
 }
 "@ -ErrorAction SilentlyContinue
+        }
         
-        [WP]::SystemParametersInfo(20, 0, $file, 3) | Out-Null
+        [WPHelper]::SystemParametersInfo(20, 0, $file, 3) | Out-Null
         Set-ItemProperty "HKCU:\Control Panel\Desktop" -Name WallpaperStyle -Value "10" -Type String -Force -ErrorAction SilentlyContinue
         Set-ItemProperty "HKCU:\Control Panel\Desktop" -Name TileWallpaper -Value "0" -Type String -Force -ErrorAction SilentlyContinue
         
-        Write-Log "Wallpaper: $Name" 'OK'
+        $sizeMB = [math]::Round((Get-Item $file).Length/1MB, 2)
+        Write-Log "Wallpaper: $Name ($sizeMB MB)" 'OK'
         return $true
     } catch {
-        Write-Log "Wallpaper failed: $Name" 'ERROR'
+        Write-Log "Wallpaper failed: $Name - $($_.Exception.Message)" 'ERROR'
         return $false
     }
 }
@@ -654,7 +667,7 @@ function Show-CustomizeView {
     $HeaderText.Text = "Customize"
     $SubHeaderText.Text = "Themes · Colors · Wallpapers — تطبيق فوري بدون Restart"
     
-    # ═══ THEMES ═══
+    # THEMES
     $themeHdr = New-Object System.Windows.Controls.TextBlock
     $themeHdr.Text = "▸ Themes"
     $themeHdr.FontSize = 15; $themeHdr.FontWeight = "Bold"
@@ -679,7 +692,7 @@ function Show-CustomizeView {
     }
     $ContentArea.Children.Add($themeWrap) | Out-Null
     
-    # ═══ COLORS ═══
+    # COLORS
     $colorHdr = New-Object System.Windows.Controls.TextBlock
     $colorHdr.Text = "▸ Accent Colors"
     $colorHdr.FontSize = 15; $colorHdr.FontWeight = "Bold"
@@ -704,12 +717,17 @@ function Show-CustomizeView {
     }
     $ContentArea.Children.Add($colorWrap) | Out-Null
     
-    # ═══ WALLPAPERS ═══
+    # WALLPAPERS
     $wallHdr = New-Object System.Windows.Controls.TextBlock
-    $wallHdr.Text = "▸ Wallpapers"
+    $wallHdr.Text = "▸ Wallpapers (Unsplash)"
     $wallHdr.FontSize = 15; $wallHdr.FontWeight = "Bold"
     $wallHdr.Foreground = "#ff9944"; $wallHdr.Margin = "0,25,0,10"
     $ContentArea.Children.Add($wallHdr) | Out-Null
+    
+    $wallNote = New-Object System.Windows.Controls.TextBlock
+    $wallNote.Text = "اضغط أي خلفية — تتحمّل وتتطبق فوراً"
+    $wallNote.FontSize = 10; $wallNote.Foreground = "#7a7a8a"; $wallNote.Margin = "0,0,0,10"
+    $ContentArea.Children.Add($wallNote) | Out-Null
     
     $wallWrap = New-Object System.Windows.Controls.WrapPanel
     foreach ($w in $script:Wallpapers) {
@@ -738,7 +756,7 @@ function Show-CustomizeView {
             if (Apply-Wallpaper -Url $wp.URL -Name $wp.Name) {
                 $StatusText.Text = "Applied: $($wp.Name)"
             } else {
-                $StatusText.Text = "Failed"
+                $StatusText.Text = "Failed: $($wp.Name)"
             }
         })
         $wallWrap.Children.Add($btn) | Out-Null
@@ -766,7 +784,7 @@ $script:Presets = @{
 [xml]$xaml = @"
 <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="BJA Toolbox v11.0" Height="850" Width="1400"
+        Title="BJA Toolbox v11.1" Height="850" Width="1400"
         WindowStartupLocation="CenterScreen"
         Background="#0a0a0f" Foreground="#e8e8f0"
         WindowStyle="None" ResizeMode="CanResizeWithGrip">
@@ -877,7 +895,7 @@ $script:Presets = @{
           <TextBlock Text="🔒" FontSize="18" Foreground="#00e5a0" VerticalAlignment="Center"/>
           <TextBlock Text="BJA" FontSize="18" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
           <TextBlock Text="Toolbox" FontSize="14" Foreground="#7a7a8a" Margin="6,0,0,0" VerticalAlignment="Center"/>
-          <TextBlock Text="v11.0" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
+          <TextBlock Text="v11.1" FontSize="11" Foreground="#7b5cff" Margin="10,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,10,0">
           <Button x:Name="BtnMin" Content="—" Width="42" Height="32" Background="Transparent" Foreground="#888" BorderThickness="0" FontSize="16" Cursor="Hand"/>
@@ -946,7 +964,7 @@ $script:Presets = @{
     <Border Grid.Row="3" Background="#08080c" BorderBrush="#26263a" BorderThickness="0,1,0,0">
       <Grid Margin="24,0">
         <TextBlock x:Name="StatusText" Text="Ready" Foreground="#7a7a8a" FontSize="11" VerticalAlignment="Center"/>
-        <TextBlock Text="BJA Toolbox v11.0" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+        <TextBlock Text="BJA Toolbox v11.1" Foreground="#7a7a8a" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center"/>
       </Grid>
     </Border>
   </Grid>
@@ -1246,10 +1264,6 @@ $window.FindName("NavRun").Add_Click({
     [System.Windows.MessageBox]::Show("Done! Check log on Desktop", "BJA")
     $StatusText.Text = "Complete - check log"
 })
-
-# ═══════════════════════════════════════════════════════════
-#  START
-# ═══════════════════════════════════════════════════════════
 
 Show-TweaksView
 Write-Log "BJA Toolbox v$($script:Version) started"
